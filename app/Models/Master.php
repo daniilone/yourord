@@ -32,4 +32,9 @@ class Master extends Authenticatable
     {
         return $this->hasMany(Blacklist::class);
     }
+
+    public function authProviders()
+    {
+        return $this->hasMany(AuthProvider::class, 'user_id')->where('user_type', 'master');
+    }
 }

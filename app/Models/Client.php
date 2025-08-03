@@ -12,4 +12,9 @@ class Client extends Authenticatable
     {
         return $this->hasMany(Booking::class);
     }
+
+    public function authProviders()
+    {
+        return $this->hasMany(AuthProvider::class, 'user_id')->where('user_type', 'client');
+    }
 }

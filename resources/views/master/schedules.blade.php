@@ -17,9 +17,11 @@
         @endforeach
     </ul>
 @endif
-@foreach ($schedules as $schedule)
+@forelse ($schedules as $schedule)
     <p>{{ $schedule->project->name }}: {{ $schedule->start_time->format('d.m.Y H:i') }} - {{ $schedule->end_time->format('d.m.Y H:i') }} ({{ $schedule->type }})</p>
-@endforeach
+@empty
+    <p>Слотов нет</p>
+@endforelse
 <h2>Добавить слот</h2>
 <form method="POST" action="{{ route('master.schedules.store') }}">
     @csrf

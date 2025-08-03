@@ -17,11 +17,13 @@
         @endforeach
     </ul>
 @endif
-@foreach ($bookings as $booking)
-    <p>{{ $booking->service->name }} - {{ $booking->client_email ?? 'Аноним' }} - {{ $booking->schedule->start_time->format('d.m.Y H:i') }} ({{ $booking->status }})</p>
-@endforeach
+@forelse ($bookings as $booking)
+    <p>{{ $booking->project->name }}: {{ $booking->service->name }} - {{ $booking->client_email ?? 'Аноним' }} - {{ $booking->schedule->start_time->format('d.m.Y H:i') }} ({{ $booking->status }})</p>
+@empty
+    <p>Записей нет</p>
+@endforelse
 <h2>Создать ручную запись</h2>
-<form method="POST" action="{{ route('booking.create-manual') }}">
+<form method="POST" action="{{ route('master.bookings.create') }}">
     @csrf
     <div>
         <label for="project_id">Проект</label>

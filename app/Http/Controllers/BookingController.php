@@ -6,6 +6,7 @@ use App\Models\Booking;
 use App\Models\Project;
 use App\Models\Service;
 use App\Models\Schedule;
+use App\Models\Blacklist;
 use Illuminate\Http\Request;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
@@ -19,7 +20,9 @@ class BookingController extends Controller
 
     public function clientBookings()
     {
-        $bookings = Booking::where('client_id', Auth::guard('client')->id())->with(['service', 'schedule'])->get();
+        $bookings = Booking::where('client_id', Auth::guard('client')->id())
+            ->with(['service', 'schedule', 'project'])
+            ->get();
         return view('client.bookings', compact('bookings'));
     }
 
@@ -67,53 +70,13 @@ class BookingController extends Controller
 
         Booking::create([
             'project_id' => $request->project_id,
-            'client_id' => Auth::guard('client')->id(),
-            'client_email' => Auth::guard('client')->user()->email,
+            'client_id' => $client->id,
+            'client_email' => $client->email,
             'service_id' => $request->service_id,
             'schedule_id' => $request->schedule_id,
             'status' => 'pending',
         ]);
 
         return redirect()->route('client.bookings')->with('message', 'Запись создана');
-    }
-
-    public function masterDashboard()
-    {
-        return view('master.dashboard');
-    }
-
-    public function masterBookings()
-    {
-        $bookings = Booking::whereIn('project_id', Auth::guard('master')->user()->projects->pluck('id'))
-            ->with(['service', 'schedule'])
-            ->get();
-        return view('master.bookings', compact('bookings'));
-    }
-
-    public function createManual(Request $request)
-    {
-        $request->validate([
-            'project_id' => 'required|exists:projects,id',
-            'service_id' => 'required|exists:services,id',
-            'schedule_id' => 'required|exists:schedules,id',
-            'client_email' => 'required|email',
-            'client_name' => 'nullable|string',
-        ]);
-
-        if (Blacklist::where('master_id', Auth::guard('master')->id())->where('client_email', $request->client_email)->exists()) {
-            return redirect()->back()->withErrors(['client_email' => 'Клиент в черном списке']);
-        }
-
-        Booking::create([
-            'project_id' => $request->project_id,
-            'client_id' => null,
-            'client_email' => $request->client_email,
-            'client_name' => $request->client_name,
-            'service_id' => $request->service_id,
-            'schedule_id' => $request->schedule_id,
-            'status' => 'confirmed',
-        ]);
-
-        return redirect()->route('master.bookings')->with('message', 'Запись создана');
     }
 }

@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\OtpCode;
 use App\Models\Client;
 use App\Models\Master;
+use App\Models\AuthProvider;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
@@ -44,7 +45,11 @@ class AuthController extends Controller
             $message->to($request->email)->subject('Код подтверждения YourOrd');
         });
 
-        return redirect()->route('auth.verify-form')->with(['message' => 'Код отправлен', 'email' => $request->email, 'user_type' => $request->user_type]);
+        return redirect()->route('auth.verify-form')->with([
+            'message' => 'Код отправлен',
+            'email' => $request->email,
+            'user_type' => $request->user_type
+        ]);
     }
 
     public function showVerifyForm()
@@ -76,8 +81,7 @@ class AuthController extends Controller
                 $user = $model::create(['email' => $request->email]);
             }
 
-            // Сохраняем провайдер
-            \App\Models\AuthProvider::updateOrCreate(
+            AuthProvider::updateOrCreate(
                 [
                     'user_id' => $user->id,
                     'user_type' => $request->user_type,

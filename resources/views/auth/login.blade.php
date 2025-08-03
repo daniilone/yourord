@@ -22,8 +22,9 @@
     </div>
     <button type="submit">Отправить код</button>
     @if (session('message'))
-        <p>{{ session('message') }}</p>
+        <p style="color: green;">{{ session('message') }}</p>
     @endif
 </form>
+<a href="{{ route('admin.login') }}">Вход для администратора</a>
 </body>
 </html>
