@@ -6,16 +6,16 @@ use Illuminate\Database\Eloquent\Model;
 
 class Booking extends Model
 {
-    protected $fillable = ['project_id', 'client_id', 'client_name', 'client_email', 'service_id', 'schedule_id', 'status'];
-
-    public function project()
-    {
-        return $this->belongsTo(Project::class);
-    }
+    protected $fillable = ['client_id', 'project_id', 'service_id', 'daily_schedule_id', 'client_email', 'start_time', 'status'];
 
     public function client()
     {
         return $this->belongsTo(Client::class);
+    }
+
+    public function project()
+    {
+        return $this->belongsTo(Project::class);
     }
 
     public function service()
@@ -23,8 +23,8 @@ class Booking extends Model
         return $this->belongsTo(Service::class);
     }
 
-    public function schedule()
+    public function dailySchedule()
     {
-        return $this->belongsTo(Schedule::class);
+        return $this->belongsTo(DailySchedule::class);
     }
 }

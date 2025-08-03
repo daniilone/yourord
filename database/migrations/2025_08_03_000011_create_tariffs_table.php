@@ -11,7 +11,7 @@ return new class extends Migration
         Schema::create('tariffs', function (Blueprint $table) {
             $table->id();
             $table->string('name');
-            $table->decimal('price', 10, 2);
+            $table->decimal('price', 8, 2);
             $table->integer('duration_days');
             $table->timestamps();
         });

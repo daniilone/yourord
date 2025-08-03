@@ -12,9 +12,6 @@ return new class extends Migration
             $table->id();
             $table->unsignedBigInteger('master_id');
             $table->string('name');
-            $table->string('slug')->unique();
-            $table->string('city')->nullable();
-            $table->text('address')->nullable();
             $table->text('description')->nullable();
             $table->timestamps();
             $table->foreign('master_id')->references('id')->on('masters')->onDelete('cascade');

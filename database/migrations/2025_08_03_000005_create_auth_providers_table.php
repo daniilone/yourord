@@ -8,19 +8,19 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('auth_providers', function (Blueprint $table) {
+        Schema::create('client_auth_providers', function (Blueprint $table) {
             $table->id();
-            $table->unsignedBigInteger('user_id');
-            $table->enum('user_type', ['client', 'master']);
-            $table->string('provider', 50); // email, phone, google, yandex
+            $table->unsignedBigInteger('client_id');
+            $table->string('provider', 50);
             $table->string('provider_id');
             $table->timestamps();
             $table->unique(['provider', 'provider_id']);
+            $table->foreign('client_id')->references('id')->on('clients')->onDelete('cascade');
         });
     }
 
     public function down(): void
     {
-        Schema::dropIfExists('auth_providers');
+        Schema::dropIfExists('client_auth_providers');
     }
 };

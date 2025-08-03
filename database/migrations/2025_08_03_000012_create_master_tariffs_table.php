@@ -12,8 +12,8 @@ return new class extends Migration
             $table->id();
             $table->unsignedBigInteger('master_id');
             $table->unsignedBigInteger('tariff_id');
-            $table->timestamp('start_date');
-            $table->timestamp('end_date');
+            $table->dateTime('start_date');
+            $table->dateTime('end_date');
             $table->timestamps();
             $table->foreign('master_id')->references('id')->on('masters')->onDelete('cascade');
             $table->foreign('tariff_id')->references('id')->on('tariffs')->onDelete('cascade');

@@ -8,20 +8,19 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('payments', function (Blueprint $table) {
+        Schema::create('master_auth_providers', function (Blueprint $table) {
             $table->id();
             $table->unsignedBigInteger('master_id');
-            $table->unsignedBigInteger('tariff_id');
-            $table->decimal('amount', 8, 2);
-            $table->enum('status', ['pending', 'completed', 'failed'])->default('pending');
+            $table->string('provider', 50);
+            $table->string('provider_id');
             $table->timestamps();
+            $table->unique(['provider', 'provider_id']);
             $table->foreign('master_id')->references('id')->on('masters')->onDelete('cascade');
-            $table->foreign('tariff_id')->references('id')->on('tariffs')->onDelete('cascade');
         });
     }
 
     public function down(): void
     {
-        Schema::dropIfExists('payments');
+        Schema::dropIfExists('master_auth_providers');
     }
 };

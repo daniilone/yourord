@@ -8,17 +8,17 @@ class Master extends Authenticatable
 {
     protected $fillable = ['email', 'name'];
 
+    public function authProviders()
+    {
+        return $this->hasMany(MasterAuthProvider::class);
+    }
+
     public function projects()
     {
         return $this->hasMany(Project::class);
     }
 
-    public function schedules()
-    {
-        return $this->hasMany(Schedule::class);
-    }
-
-    public function masterTariffs()
+    public function tariffs()
     {
         return $this->hasMany(MasterTariff::class);
     }
@@ -28,13 +28,8 @@ class Master extends Authenticatable
         return $this->hasMany(Payment::class);
     }
 
-    public function blacklist()
+    public function blacklists()
     {
-        return $this->hasMany(Blacklist::class);
-    }
-
-    public function authProviders()
-    {
-        return $this->hasMany(AuthProvider::class, 'user_id')->where('user_type', 'master');
+        return $this->belongsToMany(Client::class, 'blacklist', 'master_id', 'client_id')->withPivot('reason');
     }
 }

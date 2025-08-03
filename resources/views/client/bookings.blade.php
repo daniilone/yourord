@@ -4,53 +4,50 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Мои записи - YourOrd</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
 </head>
 <body>
-<h1>Мои записи</h1>
-@if (session('message'))
-    <p style="color: green;">{{ session('message') }}</p>
-@endif
-@if ($errors->any())
-    <ul style="color: red;">
-        @foreach ($errors->all() as $error)
-            <li>{{ $error }}</li>
+<div class="container mt-5">
+    <h1>Мои записи</h1>
+    <nav class="nav mb-3">
+        <a class="nav-link" href="{{ route('client.dashboard') }}">Назад в кабинет</a>
+        <a class="nav-link" href="{{ route('client.projects') }}">Мои проекты</a>
+        <a class="nav-link" href="{{ route('client.auth.logout') }}">Выйти</a>
+    </nav>
+
+    <table class="table table-striped">
+        <thead>
+        <tr>
+            <th>Проект</th>
+            <th>Услуга</th>
+            <th>Дата</th>
+            <th>Время</th>
+            <th>Статус</th>
+            <th>Действия</th>
+        </tr>
+        </thead>
+        <tbody>
+        @foreach ($bookings as $booking)
+            <tr>
+                <td>{{ $booking->project->name }}</td>
+                <td>{{ $booking->service->name }}</td>
+                <td>{{ is_string($booking->dailySchedule->date) ? \Carbon\Carbon::parse($booking->dailySchedule->date)->format('d.m.Y') : $booking->dailySchedule->date->format('d.m.Y') }}</td>
+                <td>{{ $booking->start_time }}</td>
+                <td>{{ $booking->status }}</td>
+                <td>
+                    @if ($booking->status != 'cancelled')
+                        <form method="POST" action="{{ route('client.bookings.cancel', $booking) }}">
+                            @csrf
+                            @method('PATCH')
+                            <button type="submit" class="btn btn-danger btn-sm">Отменить</button>
+                        </form>
+                    @endif
+                </td>
+            </tr>
         @endforeach
-    </ul>
-@endif
-@forelse ($bookings as $booking)
-    <p>{{ $booking->project->name }}: {{ $booking->service->name }} - {{ $booking->schedule->start_time->format('d.m.Y H:i') }} ({{ $booking->status }})</p>
-@empty
-    <p>Записей нет</p>
-@endforelse
-<h2>Новая запись</h2>
-<form method="POST" action="{{ route('booking.create') }}">
-    @csrf
-    <div>
-        <label for="project_id">Проект</label>
-        <select name="project_id" id="project_id" required>
-            @foreach (\App\Models\Project::all() as $project)
-                <option value="{{ $project->id }}">{{ $project->name }}</option>
-            @endforeach
-        </select>
-    </div>
-    <div>
-        <label for="service_id">Услуга</label>
-        <select name="service_id" id="service_id" required>
-            @foreach (\App\Models\Service::all() as $service)
-                <option value="{{ $service->id }}">{{ $service->name }} ({{ $service->duration }} мин)</option>
-            @endforeach
-        </select>
-    </div>
-    <div>
-        <label for="schedule_id">Время</label>
-        <select name="schedule_id" id="schedule_id" required>
-            @foreach (\App\Models\Schedule::where('type', 'work')->get() as $schedule)
-                <option value="{{ $schedule->id }}">{{ $schedule->start_time->format('d.m.Y H:i') }}</option>
-            @endforeach
-        </select>
-    </div>
-    <button type="submit">Записаться</button>
-</form>
-<a href="{{ route('client.dashboard') }}">Назад</a>
+        </tbody>
+    </table>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

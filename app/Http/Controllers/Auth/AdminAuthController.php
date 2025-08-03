@@ -10,21 +10,21 @@ class AdminAuthController extends Controller
 {
     public function showLoginForm()
     {
-        return view('auth.admin-login');
+        return view('admin.auth.login');
     }
 
     public function login(Request $request)
     {
         $request->validate([
             'email' => 'required|email',
-            'password' => 'required|string',
+            'password' => 'required',
         ]);
 
         if (Auth::guard('web')->attempt(['email' => $request->email, 'password' => $request->password])) {
             return redirect()->route('admin.dashboard');
         }
 
-        return redirect()->back()->withErrors(['email' => 'Неверный email или пароль']);
+        return redirect()->back()->withErrors(['email' => 'Неверные учетные данные']);
     }
 
     public function logout(Request $request)
