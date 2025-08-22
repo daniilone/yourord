@@ -1,264 +1,240 @@
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Расписание - YourOrd</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+@extends('layouts.master')
+
+@section('title', 'Расписание - YourOrd')
+
+@section('header', 'Расписание мастера')
+
+@push('styles')
     <link href="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         #calendar {
-            max-width: 900px;
-            margin: 20px auto;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 1rem;
+        }
+        .fc-daygrid-day-number {
+            font-size: 1rem;
+            font-weight: 600;
+        }
+        .fc-event {
+            cursor: pointer;
+            border-radius: 0.25rem;
+            padding: 0.25rem;
+        }
+        .modal {
+            transition: opacity 0.3s ease-in-out, visibility 0.3s ease-in-out;
+            z-index: 9999;
+        }
+        .modal-content {
+            transform: scale(0.95);
+            transition: transform 0.2s ease-in-out;
+        }
+        .modal:not(.hidden) .modal-content {
+            transform: scale(1);
         }
         .break-row {
-            margin-bottom: 10px;
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+            margin-bottom: 1rem;
         }
         .break-row input {
-            margin-right: 10px;
+            width: 120px;
         }
     </style>
-</head>
-<body>
-<div class="container mt-5">
-    <h1>Ваше расписание</h1>
-    <nav class="nav mb-3">
-        <a class="nav-link" href="{{ route('master.dashboard') }}">Назад в кабинет</a>
-        <a class="nav-link" href="{{ route('master.projects') }}">Проекты</a>
-        <a class="nav-link" href="{{ route('master.categories') }}">Категории</a>
-        <a class="nav-link" href="{{ route('master.services') }}">Услуги</a>
-        <a class="nav-link" href="{{ route('master.daily_schedule_templates') }}">Шаблоны расписания</a>
-        <a class="nav-link" href="{{ route('master.bookings') }}">Записи</a>
-        <a class="nav-link" href="{{ route('master.blacklist') }}">Черный список</a>
-        <a class="nav-link" href="{{ route('master.auth.logout') }}">Выйти</a>
-    </nav>
+@endpush
 
-    <h2>Календарь расписания</h2>
-    <div id="calendar"></div>
+@section('content')
+    <div class="container mx-auto px-4 py-8">
+        <div id="calendar" class="bg-white rounded-lg shadow-lg"></div>
 
-    <h2 class="mt-5">Добавить расписание на день</h2>
-    <form method="POST" action="{{ route('master.daily_schedules.create') }}" id="schedule-form" class="mt-3">
-        @csrf
-        <div class="mb-3">
-            <label for="create_project_id" class="form-label">Проект</label>
-            <select name="project_id" id="create_project_id" class="form-control" required>
-                @foreach (App\Models\Project::where('master_id', Auth::guard('master')->id())->get() as $project)
-                    <option value="{{ $project->id }}">{{ $project->name }}</option>
-                @endforeach
-            </select>
-            @error('project_id')
-            <div class="text-danger">{{ $message }}</div>
-            @enderror
-        </div>
-        <div class="mb-3">
-            <label for="create_date" class="form-label">Дата</label>
-            <input type="date" name="date" id="create_date" class="form-control" required>
-            @error('date')
-            <div class="text-danger">{{ $message }}</div>
-            @enderror
-        </div>
-        <div class="mb-3 form-check">
-            <input type="checkbox" name="is_working_day" id="create_is_working_day" class="form-check-input" value="1" checked>
-            <label for="create_is_working_day" class="form-check-label">Рабочий день</label>
-        </div>
-        <div id="create_working_hours" style="display: block;">
-            <div class="mb-3">
-                <label for="create_start_time" class="form-label">Время начала</label>
-                <input type="time" name="start_time" id="create_start_time" class="form-control" required>
-                @error('start_time')
-                <div class="text-danger">{{ $message }}</div>
-                @enderror
+        <!-- Модальное окно для создания/редактирования расписания -->
+        <div class="modal fade fixed top-0 left-0 hidden w-full h-full bg-black bg-opacity-50 flex items-center justify-center" id="scheduleModal" tabindex="-1">
+            <div class="modal-content bg-white rounded-lg w-full max-w-md p-6">
+                <form id="scheduleForm" method="POST" action="{{ route('master.daily_schedules.create') }}">
+                    @csrf
+                    <input type="hidden" name="_method" id="form_method" value="POST">
+                    <input type="hidden" name="schedule_id" id="modal_schedule_id">
+                    <div class="mb-4">
+                        <label for="modal_project_id" class="block text-sm font-medium text-gray-700">Проект</label>
+                        <select name="project_id" id="modal_project_id" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" required>
+                            @foreach (App\Models\Project::where('master_id', Auth::guard('master')->id())->get() as $project)
+                                <option value="{{ $project->id }}">{{ $project->name }}</option>
+                            @endforeach
+                        </select>
+                        @error('project_id')
+                        <div class="text-red-600 text-sm mt-1">{{ $message }}</div>
+                        @enderror
+                    </div>
+                    <div class="mb-4">
+                        <label for="modal_date" class="block text-sm font-medium text-gray-700">Дата</label>
+                        <input type="date" name="date" id="modal_date" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" required>
+                        @error('date')
+                        <div class="text-red-600 text-sm mt-1">{{ $message }}</div>
+                        @enderror
+                    </div>
+                    <div class="mb-4">
+                        <label class="flex items-center">
+                            <input type="checkbox" name="is_working_day" id="modal_is_working_day" value="1" class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded" checked>
+                            <span class="ml-2 text-sm text-gray-700">Рабочий день</span>
+                        </label>
+                    </div>
+                    <div id="work_time_block">
+                        <div class="mb-4">
+                            <label for="modal_start_time" class="block text-sm font-medium text-gray-700">Время начала</label>
+                            <input type="time" name="start_time" id="modal_start_time" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" step="60">
+                            @error('start_time')
+                            <div class="text-red-600 text-sm mt-1">{{ $message }}</div>
+                            @enderror
+                        </div>
+                        <div class="mb-4">
+                            <label for="modal_end_time" class="block text-sm font-medium text-gray-700">Время окончания</label>
+                            <input type="time" name="end_time" id="modal_end_time" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" step="60">
+                            @error('end_time')
+                            <div class="text-red-600 text-sm mt-1">{{ $message }}</div>
+                            @enderror
+                        </div>
+                        <div id="breaks_block">
+                            <h3 class="text-lg font-medium text-gray-900 mb-2">Перерывы</h3>
+                            <div id="breaks_container"></div>
+                            <button type="button" id="add_break" class="mt-2 text-indigo-600 hover:text-indigo-800 text-sm font-medium">+ Добавить перерыв</button>
+                        </div>
+                    </div>
+                    <div class="mt-6 flex justify-end gap-2">
+                        <button type="button" id="cancel_modal" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300">Отменить</button>
+                        <button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">Сохранить</button>
+                    </div>
+                </form>
             </div>
-            <div class="mb-3">
-                <label for="create_end_time" class="form-label">Время окончания</label>
-                <input type="time" name="end_time" id="create_end_time" class="form-control" required>
-                @error('end_time')
-                <div class="text-danger">{{ $message }}</div>
-                @enderror
-            </div>
-            <div id="create_breaks_container">
-                <h3>Перерывы</h3>
-                <div class="break-row">
-                    <input type="time" name="breaks[0][start_time]" class="form-control d-inline-block w-auto">
-                    <input type="time" name="breaks[0][end_time]" class="form-control d-inline-block w-auto">
-                    <button type="button" class="btn btn-danger btn-sm remove-break">Удалить</button>
-                </div>
-            </div>
-            <button type="button" class="btn btn-secondary mt-2" id="create_add_break">Добавить перерыв</button>
         </div>
-        <button type="submit" class="btn btn-primary mt-3">Сохранить расписание</button>
-    </form>
+    </div>
+    @push('scripts')
+        <script src="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.js"></script>
+        <script>
+            document.addEventListener('DOMContentLoaded', function () {
+                const calendarEl = document.getElementById('calendar');
+                const modal = document.getElementById('scheduleModal');
+                const form = document.getElementById('scheduleForm');
+                const formMethod = document.getElementById('form_method');
 
-    <h2 class="mt-5">Редактировать расписание</h2>
-    <form method="POST" id="edit-schedule-form" class="mt-3" style="display: none;">
-        @csrf
-        @method('PATCH')
-        <input type="hidden" name="schedule_id" id="edit_schedule_id">
-        <div class="mb-3">
-            <label for="edit_project_id" class="form-label">Проект</label>
-            <select name="project_id" id="edit_project_id" class="form-control" required>
-                @foreach (App\Models\Project::where('master_id', Auth::guard('master')->id())->get() as $project)
-                    <option value="{{ $project->id }}">{{ $project->name }}</option>
-                @endforeach
-            </select>
-            @error('project_id')
-            <div class="text-danger">{{ $message }}</div>
-            @enderror
-        </div>
-        <div class="mb-3">
-            <label for="edit_date" class="form-label">Дата</label>
-            <input type="date" name="date" id="edit_date" class="form-control" required>
-            @error('date')
-            <div class="text-danger">{{ $message }}</div>
-            @enderror
-        </div>
-        <div class="mb-3 form-check">
-            <input type="checkbox" name="is_working_day" id="edit_is_working_day" class="form-check-input" value="1">
-            <label for="edit_is_working_day" class="form-check-label">Рабочий день</label>
-        </div>
-        <div id="edit_working_hours">
-            <div class="mb-3">
-                <label for="edit_start_time" class="form-label">Время начала</label>
-                <input type="time" name="start_time" id="edit_start_time" class="form-control">
-                @error('start_time')
-                <div class="text-danger">{{ $message }}</div>
-                @enderror
-            </div>
-            <div class="mb-3">
-                <label for="edit_end_time" class="form-label">Время окончания</label>
-                <input type="time" name="end_time" id="edit_end_time" class="form-control">
-                @error('end_time')
-                <div class="text-danger">{{ $message }}</div>
-                @enderror
-            </div>
-            <div id="edit_breaks_container">
-                <h3>Перерывы</h3>
-            </div>
-            <button type="button" class="btn btn-secondary mt-2" id="edit_add_break">Добавить перерыв</button>
-        </div>
-        <button type="submit" class="btn btn-primary mt-3">Обновить расписание</button>
-        <button type="button" class="btn btn-secondary mt-3" id="cancel_edit">Отменить</button>
-    </form>
-</div>
-
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.js"></script>
-<script>
-    document.addEventListener('DOMContentLoaded', function () {
-        var calendarEl = document.getElementById('calendar');
-        var calendar = new FullCalendar.Calendar(calendarEl, {
-            initialView: 'dayGridMonth',
-            locale: 'ru',
-            headerToolbar: {
-                left: 'prev,next today',
-                center: 'title',
-                right: 'dayGridMonth,timeGridWeek,timeGridDay'
-            },
-            events: [
-                    @foreach ($schedules as $schedule)
-                {
-                    title: '{{ $schedule->is_working_day ? "Рабочий день" : "Выходной" }}',
-                    start: '{{ \Carbon\Carbon::parse($schedule->date)->format('Y-m-d') }}', // Используем Carbon для парсинга строки
-                    color: '{{ $schedule->is_working_day ? "#28a745" : "#dc3545" }}',
-                    extendedProps: {
-                        schedule_id: {{ $schedule->id }},
-                        project_id: {{ $schedule->project_id }},
-                        start_time: '{{ $schedule->start_time }}',
-                        end_time: '{{ $schedule->end_time }}',
-                        breaks: @json($schedule->workBreaks->map(fn($break) => ['start_time' => $break->start_time, 'end_time' => $break->end_time]))
+                const calendar = new FullCalendar.Calendar(calendarEl, {
+                    initialView: 'dayGridMonth',
+                    locale: 'ru',
+                    headerToolbar: {
+                        left: 'prev,next today',
+                        center: 'title',
+                        right: 'dayGridMonth,timeGridWeek,timeGridDay'
+                    },
+                    events: [
+                            @foreach ($schedules as $schedule)
+                        {
+                            title: '{{ $schedule->is_working_day ? "Рабочий день" : "Выходной" }}',
+                            start: '{{ \Carbon\Carbon::parse($schedule->date)->format('Y-m-d') }}',
+                            color: '{{ $schedule->is_working_day ? "#10b981" : "#ef4444" }}',
+                            extendedProps: {
+                                schedule_id: {{ $schedule->id }},
+                                project_id: {{ $schedule->project_id }},
+                                start_time: '{{ $schedule->start_time }}',
+                                end_time: '{{ $schedule->end_time }}',
+                                breaks: @json($schedule->workBreaks->map(fn($break) => ['start_time' => $break->start_time, 'end_time' => $break->end_time]))
+                            }
+                        },
+                        @endforeach
+                    ],
+                    eventClick: function (info) {
+                        const event = info.event;
+                        form.action = '{{ route("master.daily_schedules.update", ":id") }}'.replace(':id', event.extendedProps.schedule_id);
+                        formMethod.value = 'PATCH';
+                        document.getElementById('modal_schedule_id').value = event.extendedProps.schedule_id;
+                        document.getElementById('modal_project_id').value = event.extendedProps.project_id;
+                        document.getElementById('modal_date').value = event.startStr;
+                        document.getElementById('modal_is_working_day').checked = event.title === 'Рабочий день';
+                        document.getElementById('modal_start_time').value = formatTime(event.extendedProps.start_time) || '';
+                        document.getElementById('modal_end_time').value = formatTime(event.extendedProps.end_time) || '';
+                        const breaksContainer = document.getElementById('breaks_container');
+                        breaksContainer.innerHTML = '';
+                        event.extendedProps.breaks.forEach((b, index) => {
+                            breaksContainer.innerHTML += `
+                        <div class="break-row">
+                            <input type="time" name="breaks[${index}][start_time]" value="${formatTime(b.start_time)}" class="border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" step="60" required>
+                            <input type="time" name="breaks[${index}][end_time]" value="${formatTime(b.end_time)}" class="border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" step="60" required>
+                            <button type="button" class="text-red-600 hover:text-red-800 remove-break"><i class="fas fa-trash"></i></button>
+                        </div>
+                    `;
+                        });
+                        toggleWorkTimeBlock();
+                        modal.classList.remove('hidden');
+                    },
+                    dateClick: function (info) {
+                        form.action = '{{ route("master.daily_schedules.create") }}';
+                        formMethod.value = 'POST';
+                        document.getElementById('modal_schedule_id').value = '';
+                        document.getElementById('modal_date').value = info.dateStr;
+                        document.getElementById('modal_is_working_day').checked = true;
+                        document.getElementById('modal_start_time').value = '';
+                        document.getElementById('modal_end_time').value = '';
+                        document.getElementById('breaks_container').innerHTML = '';
+                        toggleWorkTimeBlock();
+                        modal.classList.remove('hidden');
                     }
-                },
-                @endforeach
-            ],
-            eventClick: function (info) {
-                var event = info.event;
-                var form = document.getElementById('edit-schedule-form');
-                var action = '{{ route("master.daily_schedules.update", ":id") }}'.replace(':id', event.extendedProps.schedule_id);
-                form.action = action;
-                form.style.display = 'block';
-                document.getElementById('schedule-form').style.display = 'none';
-
-                document.getElementById('edit_schedule_id').value = event.extendedProps.schedule_id;
-                document.getElementById('edit_project_id').value = event.extendedProps.project_id;
-                document.getElementById('edit_date').value = event.startStr;
-                document.getElementById('edit_is_working_day').checked = event.title === 'Рабочий день';
-                document.getElementById('edit_working_hours').style.display = event.title === 'Рабочий день' ? 'block' : 'none';
-                document.getElementById('edit_start_time').value = event.extendedProps.start_time || '';
-                document.getElementById('edit_end_time').value = event.extendedProps.end_time || '';
-
-                var breaksContainer = document.getElementById('edit_breaks_container');
-                breaksContainer.innerHTML = '<h3>Перерывы</h3>';
-                event.extendedProps.breaks.forEach((b, index) => {
-                    breaksContainer.innerHTML += `
-                            <div class="break-row">
-                                <input type="time" name="breaks[${index}][start_time]" class="form-control d-inline-block w-auto" value="${b.start_time}">
-                                <input type="time" name="breaks[${index}][end_time]" class="form-control d-inline-block w-auto" value="${b.end_time}">
-                                <button type="button" class="btn btn-danger btn-sm remove-break">Удалить</button>
-                            </div>
-                        `;
                 });
-                form.scrollIntoView();
-            },
-            dateClick: function (info) {
-                document.getElementById('create_date').value = info.dateStr;
-                document.getElementById('schedule-form').style.display = 'block';
-                document.getElementById('edit-schedule-form').style.display = 'none';
-                document.getElementById('schedule-form').scrollIntoView();
-            }
-        });
-        calendar.render();
+                calendar.render();
 
-        document.getElementById('create_is_working_day').addEventListener('change', function () {
-            document.getElementById('create_working_hours').style.display = this.checked ? 'block' : 'none';
-        });
+                // Форматирование времени в HH:MM
+                function formatTime(time) {
+                    if (!time) return '';
+                    // Если время содержит секунды (HH:MM:SS), обрезаем их
+                    if (time.match(/^\d{2}:\d{2}:\d{2}$/)) {
+                        return time.substring(0, 5); // Возвращаем HH:MM
+                    }
+                    return time;
+                }
 
-        document.getElementById('edit_is_working_day').addEventListener('change', function () {
-            document.getElementById('edit_working_hours').style.display = this.checked ? 'block' : 'none';
-        });
+                // Переключение видимости блока времени
+                document.getElementById('modal_is_working_day').addEventListener('change', toggleWorkTimeBlock);
+                function toggleWorkTimeBlock() {
+                    const isWork = document.getElementById('modal_is_working_day').checked;
+                    document.getElementById('work_time_block').style.display = isWork ? 'block' : 'none';
+                    document.getElementById('modal_start_time').required = isWork;
+                    document.getElementById('modal_end_time').required = isWork;
+                    // Устанавливаем required для полей breaks
+                    const breakInputs = document.querySelectorAll('#breaks_container input[type="time"]');
+                    breakInputs.forEach(input => input.required = isWork);
+                }
 
-        let createBreakIndex = 1;
-        document.getElementById('create_add_break').addEventListener('click', function () {
-            const container = document.getElementById('create_breaks_container');
-            const newBreak = document.createElement('div');
-            newBreak.className = 'break-row';
-            newBreak.innerHTML = `
-                    <div class="break-row">
-                        <input type="time" name="breaks[${createBreakIndex}][start_time]" class="form-control d-inline-block w-auto" required>
-                        <input type="time" name="breaks[${createBreakIndex}][end_time]" class="form-control d-inline-block w-auto" required>
-                        <button type="button" class="btn btn-danger btn-sm remove-break">Удалить</button>
-                    </div>
-                `;
-            container.appendChild(newBreak);
-            createBreakIndex++;
-        });
+                // Добавление перерыва
+                let breakIndex = 0;
+                document.getElementById('add_break').addEventListener('click', function () {
+                    const container = document.getElementById('breaks_container');
+                    container.innerHTML += `
+                <div class="break-row">
+                    <input type="time" name="breaks[${breakIndex}][start_time]" class="border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" step="60" required>
+                    <input type="time" name="breaks[${breakIndex}][end_time]" class="border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" step="60" required>
+                    <button type="button" class="text-red-600 hover:text-red-800 remove-break"><i class="fas fa-trash"></i></button>
+                </div>
+            `;
+                    toggleWorkTimeBlock();
+                    breakIndex++;
+                });
 
-        let editBreakIndex = document.querySelectorAll('#edit_breaks_container .break-row').length;
-        document.getElementById('edit_add_break').addEventListener('click', function () {
-            const container = document.getElementById('edit_breaks_container');
-            const newBreak = document.createElement('div');
-            newBreak.className = 'break-row';
-            newBreak.innerHTML = `
-                    <div class="break-row">
-                        <input type="time" name="breaks[${editBreakIndex}][start_time]" class="form-control d-inline-block w-auto" required>
-                        <input type="time" name="breaks[${editBreakIndex}][end_time]" class="form-control d-inline-block w-auto" required>
-                        <button type="button" class="btn btn-danger btn-sm remove-break">Удалить</button>
-                    </div>
-                `;
-            container.appendChild(newBreak);
-            editBreakIndex++;
-        });
+                // Удаление перерыва
+                document.addEventListener('click', function (e) {
+                    if (e.target.classList.contains('remove-break') || e.target.closest('.remove-break')) {
+                        e.target.closest('.break-row').remove();
+                    }
+                });
 
-        document.addEventListener('click', function (e) {
-            if (e.target.classList.contains('remove-break')) {
-                e.target.parentElement.remove();
-            }
-        });
+                // Закрытие модала
+                document.getElementById('cancel_modal').addEventListener('click', function () {
+                    modal.classList.add('hidden');
+                });
 
-        document.getElementById('cancel_edit').addEventListener('click', function () {
-            document.getElementById('edit-schedule-form').style.display = 'none';
-            document.getElementById('schedule-form').style.display = 'block';
-        });
-    });
-</script>
-</body>
-</html>
+                // Отладка отправки формы
+                form.addEventListener('submit', function (e) {
+                    console.log('Form data:', new FormData(form));
+                });
+            });
+        </script>
+    @endpush
+@endsection

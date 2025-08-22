@@ -27,7 +27,41 @@ class MasterController extends Controller
     {
         $master = Auth::guard('master')->user();
         $projects = Project::where('master_id', $master->id)->get();
-        return view('master.dashboard', compact('master', 'projects'));
+        $todayBookings = Booking::whereHas('project', function($query) use ($master) {
+            $query->where('master_id', $master->id);
+        })
+            ->whereDate('start_time', now()->toDateString())
+            ->count();
+        $upcomingBookings = Booking::whereHas('project', function($query) use ($master) {
+            $query->where('master_id', $master->id);
+        })
+            ->with(['project', 'service', 'client'])
+            ->where('start_time', '>=', now())
+            ->orderBy('start_time')
+            ->take(5)
+            ->get();
+        $servicesCount = Service::whereHas('category', function($query) use ($master) {
+            $query->whereHas('project', function($q) use ($master) {
+                $q->where('master_id', $master->id);
+            });
+        })
+            ->count();
+        $monthlyEarnings = Booking::whereHas('project', function($query) use ($master) {
+            $query->where('master_id', $master->id);
+        })
+            ->join('services', 'bookings.service_id', '=', 'services.id')
+            ->where('bookings.status', 'completed')
+            ->whereBetween('bookings.created_at', [now()->startOfMonth(), now()->endOfMonth()])
+            ->sum('services.price');
+
+        return view('master.dashboard', compact(
+            'master',
+            'projects',
+            'todayBookings',
+            'upcomingBookings',
+            'servicesCount',
+            'monthlyEarnings'
+        ));
     }
 
     public function bookings()
@@ -78,6 +112,26 @@ class MasterController extends Controller
         return redirect()->route('master.projects')->with('message', 'Проект создан');
     }
 
+    public function updateProject(Request $request, Project $project)
+    {
+        $master = Auth::guard('master')->user();
+        if ($project->master_id !== $master->id) {
+            return redirect()->back()->withErrors(['project' => 'У вас нет доступа к этому проекту']);
+        }
+
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'description' => 'nullable|string',
+        ]);
+
+        $project->update([
+            'name' => $request->name,
+            'description' => $request->description,
+        ]);
+
+        return redirect()->route('master.projects')->with('message', 'Проект обновлен');
+    }
+
     public function categories()
     {
         $master = Auth::guard('master')->user();
@@ -107,12 +161,51 @@ class MasterController extends Controller
         return redirect()->route('master.categories')->with('message', 'Категория создана');
     }
 
+    public function updateCategory(Request $request, Category $category)
+    {
+        $master = Auth::guard('master')->user();
+        if (!Project::where('id', $category->project_id)->where('master_id', $master->id)->exists()) {
+            return redirect()->back()->withErrors(['project' => 'У вас нет доступа к этому проекту']);
+        }
+
+        $request->validate([
+            'project_id' => 'required|exists:projects,id',
+            'name' => 'required|string|max:255',
+        ]);
+
+        if (!Project::where('id', $request->project_id)->where('master_id', $master->id)->exists()) {
+            return redirect()->back()->withErrors(['project' => 'У вас нет доступа к этому проекту']);
+        }
+
+        $category->update([
+            'project_id' => $request->project_id,
+            'name' => $request->name,
+        ]);
+
+        return redirect()->route('master.categories')->with('message', 'Категория обновлена');
+    }
+
+    public function deleteCategory(Category $category)
+    {
+        $master = Auth::guard('master')->user();
+        if (!Project::where('id', $category->project_id)->where('master_id', $master->id)->exists()) {
+            return redirect()->back()->withErrors(['project' => 'У вас нет доступа к этому проекту']);
+        }
+
+        if ($category->services()->exists()) {
+            return redirect()->back()->withErrors(['category' => 'Нельзя удалить категорию, так как она содержит услуги']);
+        }
+
+        $category->delete();
+        return redirect()->route('master.categories')->with('message', 'Категория удалена');
+    }
+
     public function services()
     {
         $master = Auth::guard('master')->user();
         $services = Service::whereHas('project', function ($query) use ($master) {
             $query->where('master_id', $master->id);
-        })->with('category')->get();
+        })->with('category')->paginate(10);
         return view('master.services', compact('services'));
     }
 
@@ -146,6 +239,51 @@ class MasterController extends Controller
         return redirect()->route('master.services')->with('message', 'Услуга создана');
     }
 
+    public function updateService(Request $request, Service $service)
+    {
+        $request->validate([
+            'project_id' => 'required|exists:projects,id',
+            'category_id' => 'required|exists:categories,id',
+            'name' => 'required|string|max:255',
+            'duration' => 'required|integer|min:1',
+            'price' => 'required|numeric|min:0',
+        ]);
+
+        $master = Auth::guard('master')->user();
+        if (!Project::where('id', $request->project_id)->where('master_id', $master->id)->exists()) {
+            return redirect()->back()->withErrors(['project' => 'У вас нет доступа к этому проекту']);
+        }
+
+        if (!Category::where('id', $request->category_id)->where('project_id', $request->project_id)->exists()) {
+            return redirect()->back()->withErrors(['category' => 'Категория не принадлежит этому проекту']);
+        }
+
+        $service->update([
+            'project_id' => $request->project_id,
+            'category_id' => $request->category_id,
+            'name' => $request->name,
+            'duration' => $request->duration,
+            'price' => $request->price,
+        ]);
+
+        return redirect()->route('master.services')->with('message', 'Услуга обновлена');
+    }
+
+    public function deleteService(Service $service)
+    {
+        $master = Auth::guard('master')->user();
+        if (!Project::where('id', $service->project_id)->where('master_id', $master->id)->exists()) {
+            return redirect()->back()->withErrors(['project' => 'У вас нет доступа к этому проекту']);
+        }
+
+        if ($service->bookings()->exists()) {
+            return redirect()->back()->withErrors(['service' => 'Нельзя удалить услугу, так как она используется в бронированиях']);
+        }
+
+        $service->delete();
+        return redirect()->route('master.services')->with('message', 'Услуга удалена');
+    }
+
     public function dailySchedules()
     {
         $master = Auth::guard('master')->user();
@@ -161,11 +299,11 @@ class MasterController extends Controller
             'project_id' => 'required|exists:projects,id',
             'date' => 'required|date',
             'is_working_day' => 'required|boolean',
-            'start_time' => 'nullable|required_if:is_working_day,1|date_format:H:i',
-            'end_time' => 'nullable|required_if:is_working_day,1|date_format:H:i|after:start_time',
+            'start_time' => 'nullable|required_if:is_working_day,1|date_format:H:i,H:i:s',
+            'end_time' => 'nullable|required_if:is_working_day,1|date_format:H:i,H:i:s|after:start_time',
             'breaks' => 'nullable|array',
-            'breaks.*.start_time' => 'required_if:is_working_day,1|date_format:H:i',
-            'breaks.*.end_time' => 'required_if:is_working_day,1|date_format:H:i|after:breaks.*.start_time',
+            'breaks.*.start_time' => 'required_if:is_working_day,1|date_format:H:i,H:i:s',
+            'breaks.*.end_time' => 'required_if:is_working_day,1|date_format:H:i,H:i:s|after:breaks.*.start_time',
         ]);
 
         $master = Auth::guard('master')->user();
@@ -194,6 +332,47 @@ class MasterController extends Controller
         return redirect()->route('master.daily_schedules')->with('message', 'Расписание дня создано');
     }
 
+    public function updateDailySchedule(Request $request, DailySchedule $schedule)
+    {
+        $request->validate([
+            'project_id' => 'required|exists:projects,id',
+            'date' => 'required|date',
+            'is_working_day' => 'required|boolean',
+            'start_time' => 'nullable|required_if:is_working_day,1|date_format:H:i,H:i:s',
+            'end_time' => 'nullable|required_if:is_working_day,1|date_format:H:i,H:i:s|after:start_time',
+            'breaks' => 'nullable|array',
+            'breaks.*.start_time' => 'required_if:is_working_day,1|date_format:H:i,H:i:s',
+            'breaks.*.end_time' => 'required_if:is_working_day,1|date_format:H:i,H:i:s|after:breaks.*.start_time',
+        ]);
+
+        $master = Auth::guard('master')->user();
+        if (!Project::where('id', $request->project_id)->where('master_id', $master->id)->exists()) {
+            return redirect()->back()->withErrors(['project' => 'У вас нет доступа к этому проекту']);
+        }
+
+        $schedule->update([
+            'project_id' => $request->project_id,
+            'date' => $request->date,
+            'is_working_day' => $request->is_working_day,
+            'start_time' => $request->is_working_day ? $request->start_time : null,
+            'end_time' => $request->is_working_day ? $request->end_time : null,
+        ]);
+
+        $schedule->workBreaks()->delete();
+
+        if ($request->is_working_day && $request->breaks) {
+            foreach ($request->breaks as $break) {
+                WorkBreak::create([
+                    'daily_schedule_id' => $schedule->id,
+                    'start_time' => $break['start_time'],
+                    'end_time' => $break['end_time'],
+                ]);
+            }
+        }
+
+        return redirect()->route('master.daily_schedules')->with('message', 'Расписание дня обновлено');
+    }
+
     public function dailyScheduleTemplates()
     {
         $master = Auth::guard('master')->user();
@@ -209,11 +388,11 @@ class MasterController extends Controller
             'project_id' => 'required|exists:projects,id',
             'name' => 'required|string|max:255',
             'is_working_day' => 'required|boolean',
-            'start_time' => 'nullable|required_if:is_working_day,1|date_format:H:i',
-            'end_time' => 'nullable|required_if:is_working_day,1|date_format:H:i|after:start_time',
+            'start_time' => 'nullable|required_if:is_working_day,1|date_format:H:i,H:i:s',
+            'end_time' => 'nullable|required_if:is_working_day,1|date_format:H:i,H:i:s|after:start_time',
             'breaks' => 'nullable|array',
-            'breaks.*.start_time' => 'required_if:is_working_day,1|date_format:H:i',
-            'breaks.*.end_time' => 'required_if:is_working_day,1|date_format:H:i|after:breaks.*.start_time',
+            'breaks.*.start_time' => 'required_if:is_working_day,1|date_format:H:i,H:i:s',
+            'breaks.*.end_time' => 'required_if:is_working_day,1|date_format:H:i,H:i:s|after:breaks.*.start_time',
         ]);
 
         $master = Auth::guard('master')->user();

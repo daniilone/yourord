@@ -34,10 +34,15 @@ Route::prefix('master')->name('master.')->group(function () {
     Route::patch('/bookings/{booking}', [MasterController::class, 'updateBooking'])->name('bookings.update');
     Route::get('/projects', [MasterController::class, 'projects'])->name('projects');
     Route::post('/projects', [MasterController::class, 'createProject'])->name('projects.create');
+    Route::put('/projects/{project}', [MasterController::class, 'updateProject'])->name('projects.update');
     Route::get('/categories', [MasterController::class, 'categories'])->name('categories');
     Route::post('/categories', [MasterController::class, 'createCategory'])->name('categories.create');
+    Route::put('/categories/{category}', [MasterController::class, 'updateCategory'])->name('categories.update');
+    Route::delete('/categories/{category}', [MasterController::class, 'deleteCategory'])->name('categories.destroy');
     Route::get('/services', [MasterController::class, 'services'])->name('services');
     Route::post('/services', [MasterController::class, 'createService'])->name('services.create');
+    Route::put('/services/{service}', [MasterController::class, 'updateService'])->name('services.update');
+    Route::delete('/services/{service}', [MasterController::class, 'deleteService'])->name('services.destroy');
     Route::get('/daily-schedules', [MasterController::class, 'dailySchedules'])->name('daily_schedules');
     Route::post('/daily-schedules', [MasterController::class, 'createDailySchedule'])->name('daily_schedules.create');
     Route::patch('/daily-schedules/{schedule}', [MasterController::class, 'updateDailySchedule'])->name('daily_schedules.update');
