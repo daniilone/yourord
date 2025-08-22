@@ -69,7 +69,9 @@ class MasterController extends Controller
         $master = Auth::guard('master')->user();
         $bookings = Booking::whereHas('project', function ($query) use ($master) {
             $query->where('master_id', $master->id);
-        })->with(['project', 'service', 'client', 'dailySchedule'])->get();
+        })->with(['project', 'service', 'dailySchedule', 'client'])
+            ->orderBy('start_time', 'desc')
+            ->paginate(10); // Замените get() на paginate(10)
         return view('master.bookings', compact('bookings'));
     }
 

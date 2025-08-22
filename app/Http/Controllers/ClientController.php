@@ -80,7 +80,11 @@ class ClientController extends Controller
     public function dashboard()
     {
         $client = Auth::guard('client')->user();
-        return view('client.dashboard', compact('client'));
+        $bookings = Booking::where('client_id', $client->id)
+            ->with(['project', 'service', 'dailySchedule'])
+            ->orderBy('start_time', 'desc')
+            ->paginate(10);
+        return view('client.dashboard', compact('bookings', 'client'));
     }
 
     public function bookings()
