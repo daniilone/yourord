@@ -67,7 +67,7 @@
                             <td class="table-cell">{{ $booking->service->name }}</td>
                             <td class="table-cell">{{ $booking->client->name ?? $booking->client->email }}</td>
                             <td class="table-cell">{{ \Carbon\Carbon::parse($booking->dailySchedule->date)->format('d.m.Y') }}</td>
-                            <td class="table-cell">{{ \Carbon\Carbon::parse($booking->start_time)->format('H:i') }} - {{ \Carbon\Carbon::parse($booking->end_time)->format('H:i') }}</td>
+                            <td class="table-cell">{{ \Carbon\Carbon::parse($booking->start_time)->format('H:i') }} - {{ \Carbon\Carbon::parse($booking->start_time)->addMinutes($booking->service->duration)->format('H:i') }}</td>
                             <td class="table-cell">
                                 <span class="{{ $booking->status == 'confirmed' ? 'text-green-600' : ($booking->status == 'cancelled' ? 'text-red-600' : 'text-yellow-600') }}">
                                     {{ $booking->status == 'pending' ? 'Ожидает' : ($booking->status == 'confirmed' ? 'Подтверждено' : 'Отменено') }}

@@ -27,10 +27,12 @@ class ClientController extends Controller
             ->get();
 
         $timeSlots = [];
+        $slotDuration = 29;
         foreach ($schedules as $schedule) {
+
             $date = Carbon::parse($schedule->date); // Парсим дату
             $start = Carbon::parse($schedule->date . ' ' . $schedule->start_time);
-            $end = Carbon::parse($schedule->date . ' ' . $schedule->end_time);
+            $end = Carbon::parse($schedule->date . ' ' . $schedule->end_time)->subMinutes($slotDuration);
             $breaks = $schedule->workBreaks->map(function ($break) use ($schedule) {
                 return [
                     'start' => Carbon::parse($schedule->date . ' ' . $break->start_time),
@@ -48,18 +50,18 @@ class ClientController extends Controller
             $slots = [];
             $current = $start->copy();
             while ($current < $end) {
-                $slotEnd = $current->copy()->addMinutes(30); // Слоты по 30 минут
+                $slotEnd = $current->copy()->addMinutes(29); // Слоты по 30 минут
                 $isAvailable = true;
 
                 foreach ($breaks as $break) {
-                    if ($current->between($break['start'], $break['end']) || $slotEnd->between($break['start'], $break['end'])) {
+                    if ($current->betweenExcluded($break['start'], $break['end']) || $slotEnd->between($break['start'], $break['end'])) {
                         $isAvailable = false;
                         break;
                     }
                 }
 
                 foreach ($bookings as $booking) {
-                    if ($current->between($booking['start'], $booking['end']) || $slotEnd->between($booking['start'], $booking['end'])) {
+                    if ($current->betweenExcluded($booking['start'], $booking['end']) || $slotEnd->between($booking['start'], $booking['end'])) {
                         $isAvailable = false;
                         break;
                     }
@@ -68,7 +70,7 @@ class ClientController extends Controller
                 if ($isAvailable) {
                     $slots[] = $current->format('H:i');
                 }
-                $current->addMinutes(30);
+                $current->addMinutes(5);
             }
 
             $timeSlots[$date->format('Y-m-d')] = $slots;
