@@ -1122,6 +1122,504 @@ class ScheduleController extends Controller
 }
 
 
+========== File: app/Models/Blacklist.php ==========
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+
+class Blacklist extends Model
+{
+    protected $fillable = ['master_id', 'client_id', 'client_email', 'reason'];
+
+    public function master()
+    {
+        return $this->belongsTo(Master::class);
+    }
+
+    public function client()
+    {
+        return $this->belongsTo(Client::class);
+    }
+}
+
+
+========== File: app/Models/Booking.php ==========
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+
+class Booking extends Model
+{
+    protected $fillable = ['client_id', 'project_id', 'service_id', 'daily_schedule_id', 'client_email', 'start_time', 'status'];
+
+    protected $dates = ['start_time', 'created_at', 'updated_at'];
+
+    public function client()
+    {
+        return $this->belongsTo(Client::class);
+    }
+
+    public function project()
+    {
+        return $this->belongsTo(Project::class);
+    }
+
+    public function service()
+    {
+        return $this->belongsTo(Service::class);
+    }
+
+    public function dailySchedule()
+    {
+        return $this->belongsTo(DailySchedule::class);
+    }
+}
+
+
+========== File: app/Models/Category.php ==========
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+
+class Category extends Model
+{
+    protected $fillable = ['project_id', 'name'];
+
+    public function project()
+    {
+        return $this->belongsTo(Project::class);
+    }
+
+    public function services()
+    {
+        return $this->hasMany(Service::class);
+    }
+}
+
+
+========== File: app/Models/Client.php ==========
+<?php
+
+namespace App\Models;
+
+use Illuminate\Foundation\Auth\User as Authenticatable;
+
+class Client extends Authenticatable
+{
+    protected $fillable = ['email', 'name'];
+
+    public function authProviders()
+    {
+        return $this->hasMany(ClientAuthProvider::class);
+    }
+
+    public function bookings()
+    {
+        return $this->hasMany(Booking::class);
+    }
+
+    public function blacklists()
+    {
+        return $this->belongsToMany(Master::class, 'blacklist', 'client_id', 'master_id')->withPivot('reason');
+    }
+
+    public function projects()
+    {
+        return $this->belongsToMany(Project::class, 'client_projects', 'client_id', 'project_id');
+    }
+}
+
+
+========== File: app/Models/ClientAuthProvider.php ==========
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+
+class ClientAuthProvider extends Model
+{
+    protected $table = 'client_auth_providers';
+    protected $fillable = ['client_id', 'provider', 'provider_id'];
+
+    public function client()
+    {
+        return $this->belongsTo(Client::class);
+    }
+}
+
+
+========== File: app/Models/DailySchedule.php ==========
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+
+class DailySchedule extends Model
+{
+    protected $fillable = ['project_id', 'date', 'is_working_day', 'start_time', 'end_time'];
+    protected $dates = ['date']; // Автоматическое преобразование date в Carbon
+
+    public function project()
+    {
+        return $this->belongsTo(Project::class);
+    }
+
+    public function workBreaks()
+    {
+        return $this->hasMany(WorkBreak::class);
+    }
+
+    public function bookings()
+    {
+        return $this->hasMany(Booking::class);
+    }
+}
+
+
+========== File: app/Models/DailyScheduleTemplate.php ==========
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+
+class DailyScheduleTemplate extends Model
+{
+    protected $fillable = ['project_id', 'name', 'is_working_day', 'start_time', 'end_time'];
+
+    public function project()
+    {
+        return $this->belongsTo(Project::class);
+    }
+
+    public function breaks()
+    {
+        return $this->hasMany(DailyScheduleTemplateBreak::class);
+    }
+}
+
+
+========== File: app/Models/DailyScheduleTemplateBreak.php ==========
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+
+class DailyScheduleTemplateBreak extends Model
+{
+    protected $fillable = ['daily_schedule_template_id', 'start_time', 'end_time'];
+
+    public function dailyScheduleTemplate()
+    {
+        return $this->belongsTo(DailyScheduleTemplate::class);
+    }
+}
+
+
+========== File: app/Models/Master.php ==========
+<?php
+
+namespace App\Models;
+
+use Illuminate\Foundation\Auth\User as Authenticatable;
+
+class Master extends Authenticatable
+{
+    protected $fillable = ['email', 'name'];
+
+    public function authProviders()
+    {
+        return $this->hasMany(MasterAuthProvider::class);
+    }
+
+    public function projects()
+    {
+        return $this->hasMany(Project::class);
+    }
+
+    public function tariffs()
+    {
+        return $this->hasMany(MasterTariff::class);
+    }
+
+    public function payments()
+    {
+        return $this->hasMany(Payment::class);
+    }
+
+    public function blacklists()
+    {
+        return $this->belongsToMany(Client::class, 'blacklist', 'master_id', 'client_id')->withPivot('reason');
+    }
+}
+
+
+========== File: app/Models/MasterAuthProvider.php ==========
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+
+class MasterAuthProvider extends Model
+{
+    protected $table = 'master_auth_providers';
+    protected $fillable = ['master_id', 'provider', 'provider_id'];
+
+    public function master()
+    {
+        return $this->belongsTo(Master::class);
+    }
+}
+
+
+========== File: app/Models/MasterTariff.php ==========
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+
+class MasterTariff extends Model
+{
+    protected $fillable = ['master_id', 'tariff_id', 'start_date', 'end_date'];
+
+    public function master()
+    {
+        return $this->belongsTo(Master::class);
+    }
+
+    public function tariff()
+    {
+        return $this->belongsTo(Tariff::class);
+    }
+}
+
+========== File: app/Models/OtpCode.php ==========
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+
+class OtpCode extends Model
+{
+    protected $fillable = ['identifier', 'type', 'code', 'expires_at', 'used'];
+}
+
+========== File: app/Models/Payment.php ==========
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+
+class Payment extends Model
+{
+    protected $fillable = ['master_id', 'tariff_id', 'amount', 'status'];
+
+    public function master()
+    {
+        return $this->belongsTo(Master::class);
+    }
+
+    public function tariff()
+    {
+        return $this->belongsTo(Tariff::class);
+    }
+}
+
+
+========== File: app/Models/Project.php ==========
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+
+class Project extends Model
+{
+    protected $fillable = ['master_id', 'name', 'description', 'slug'];
+
+    protected static function boot()
+    {
+        parent::boot();
+        static::creating(function ($project) {
+            if (empty($project->slug)) {
+                $project->slug = Str::slug($project->name);
+                $baseSlug = $project->slug;
+                $suffix = 1;
+                while (self::where('slug', $project->slug)->exists()) {
+                    $project->slug = $baseSlug . '-' . $suffix++;
+                }
+            }
+        });
+    }
+    public function master()
+    {
+        return $this->belongsTo(Master::class);
+    }
+
+    public function services()
+    {
+        return $this->hasMany(Service::class);
+    }
+
+    public function categories()
+    {
+        return $this->hasMany(Category::class);
+    }
+
+    public function dailySchedules()
+    {
+        return $this->hasMany(DailySchedule::class);
+    }
+
+    public function dailyScheduleTemplates()
+    {
+        return $this->hasMany(DailyScheduleTemplate::class);
+    }
+
+    public function bookings()
+    {
+        return $this->hasMany(Booking::class);
+    }
+    public function clients()
+    {
+        return $this->belongsToMany(Client::class, 'client_projects', 'project_id', 'client_id');
+    }
+
+}
+
+
+========== File: app/Models/Service.php ==========
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+
+class Service extends Model
+{
+    protected $fillable = ['project_id', 'category_id', 'name', 'duration', 'price'];
+
+    public function project()
+    {
+        return $this->belongsTo(Project::class);
+    }
+
+    public function category()
+    {
+        return $this->belongsTo(Category::class);
+    }
+
+    public function bookings()
+    {
+        return $this->hasMany(Booking::class);
+    }
+}
+
+
+========== File: app/Models/Tariff.php ==========
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+
+class Tariff extends Model
+{
+    protected $fillable = ['name', 'price', 'duration_days'];
+
+    public function masterTariffs()
+    {
+        return $this->hasMany(MasterTariff::class);
+    }
+
+    public function payments()
+    {
+        return $this->hasMany(Payment::class);
+    }
+}
+
+========== File: app/Models/User.php ==========
+<?php
+
+namespace App\Models;
+
+// use Illuminate\Contracts\Auth\MustVerifyEmail;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Notifications\Notifiable;
+
+class User extends Authenticatable
+{
+    /** @use HasFactory<\Database\Factories\UserFactory> */
+    use HasFactory, Notifiable;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = [
+        'name',
+        'email',
+        'password',
+    ];
+
+    /**
+     * The attributes that should be hidden for serialization.
+     *
+     * @var list<string>
+     */
+    protected $hidden = [
+        'password',
+        'remember_token',
+    ];
+
+    /**
+     * Get the attributes that should be cast.
+     *
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'email_verified_at' => 'datetime',
+            'password' => 'hashed',
+        ];
+    }
+}
+
+
+========== File: app/Models/WorkBreak.php ==========
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+
+class WorkBreak extends Model
+{
+    protected $fillable = ['daily_schedule_id', 'start_time', 'end_time'];
+
+    public function dailySchedule()
+    {
+        return $this->belongsTo(DailySchedule::class);
+    }
+}
+
+
 ========== File: database/migrations/0001_01_01_000000_create_users_table.php ==========
 <?php
 
@@ -4827,499 +5325,2371 @@ Route::get('/', function () {
 });
 
 
-========== File: app/Models/Blacklist.php ==========
+========== File: bootstrap/app.php ==========
 <?php
 
-namespace App\Models;
-
-use Illuminate\Database\Eloquent\Model;
-
-class Blacklist extends Model
-{
-    protected $fillable = ['master_id', 'client_id', 'client_email', 'reason'];
-
-    public function master()
-    {
-        return $this->belongsTo(Master::class);
-    }
-
-    public function client()
-    {
-        return $this->belongsTo(Client::class);
-    }
-}
-
-
-========== File: app/Models/Booking.php ==========
-<?php
-
-namespace App\Models;
-
-use Illuminate\Database\Eloquent\Model;
-
-class Booking extends Model
-{
-    protected $fillable = ['client_id', 'project_id', 'service_id', 'daily_schedule_id', 'client_email', 'start_time', 'status'];
-
-    protected $dates = ['start_time', 'created_at', 'updated_at'];
-
-    public function client()
-    {
-        return $this->belongsTo(Client::class);
-    }
-
-    public function project()
-    {
-        return $this->belongsTo(Project::class);
-    }
-
-    public function service()
-    {
-        return $this->belongsTo(Service::class);
-    }
-
-    public function dailySchedule()
-    {
-        return $this->belongsTo(DailySchedule::class);
-    }
-}
-
-
-========== File: app/Models/Category.php ==========
-<?php
-
-namespace App\Models;
-
-use Illuminate\Database\Eloquent\Model;
-
-class Category extends Model
-{
-    protected $fillable = ['project_id', 'name'];
-
-    public function project()
-    {
-        return $this->belongsTo(Project::class);
-    }
-
-    public function services()
-    {
-        return $this->hasMany(Service::class);
-    }
-}
-
-
-========== File: app/Models/Client.php ==========
-<?php
-
-namespace App\Models;
-
-use Illuminate\Foundation\Auth\User as Authenticatable;
-
-class Client extends Authenticatable
-{
-    protected $fillable = ['email', 'name'];
-
-    public function authProviders()
-    {
-        return $this->hasMany(ClientAuthProvider::class);
-    }
-
-    public function bookings()
-    {
-        return $this->hasMany(Booking::class);
-    }
-
-    public function blacklists()
-    {
-        return $this->belongsToMany(Master::class, 'blacklist', 'client_id', 'master_id')->withPivot('reason');
-    }
-
-    public function projects()
-    {
-        return $this->belongsToMany(Project::class, 'client_projects', 'client_id', 'project_id');
-    }
-}
-
-
-========== File: app/Models/ClientAuthProvider.php ==========
-<?php
-
-namespace App\Models;
-
-use Illuminate\Database\Eloquent\Model;
-
-class ClientAuthProvider extends Model
-{
-    protected $table = 'client_auth_providers';
-    protected $fillable = ['client_id', 'provider', 'provider_id'];
-
-    public function client()
-    {
-        return $this->belongsTo(Client::class);
-    }
-}
-
-
-========== File: app/Models/DailySchedule.php ==========
-<?php
-
-namespace App\Models;
-
-use Illuminate\Database\Eloquent\Model;
-
-class DailySchedule extends Model
-{
-    protected $fillable = ['project_id', 'date', 'is_working_day', 'start_time', 'end_time'];
-    protected $dates = ['date']; // Автоматическое преобразование date в Carbon
-
-    public function project()
-    {
-        return $this->belongsTo(Project::class);
-    }
-
-    public function workBreaks()
-    {
-        return $this->hasMany(WorkBreak::class);
-    }
-
-    public function bookings()
-    {
-        return $this->hasMany(Booking::class);
-    }
-}
-
-
-========== File: app/Models/DailyScheduleTemplate.php ==========
-<?php
-
-namespace App\Models;
-
-use Illuminate\Database\Eloquent\Model;
-
-class DailyScheduleTemplate extends Model
-{
-    protected $fillable = ['project_id', 'name', 'is_working_day', 'start_time', 'end_time'];
-
-    public function project()
-    {
-        return $this->belongsTo(Project::class);
-    }
-
-    public function breaks()
-    {
-        return $this->hasMany(DailyScheduleTemplateBreak::class);
-    }
-}
-
-
-========== File: app/Models/DailyScheduleTemplateBreak.php ==========
-<?php
-
-namespace App\Models;
-
-use Illuminate\Database\Eloquent\Model;
-
-class DailyScheduleTemplateBreak extends Model
-{
-    protected $fillable = ['daily_schedule_template_id', 'start_time', 'end_time'];
-
-    public function dailyScheduleTemplate()
-    {
-        return $this->belongsTo(DailyScheduleTemplate::class);
-    }
-}
-
-
-========== File: app/Models/Master.php ==========
-<?php
-
-namespace App\Models;
-
-use Illuminate\Foundation\Auth\User as Authenticatable;
-
-class Master extends Authenticatable
-{
-    protected $fillable = ['email', 'name'];
-
-    public function authProviders()
-    {
-        return $this->hasMany(MasterAuthProvider::class);
-    }
-
-    public function projects()
-    {
-        return $this->hasMany(Project::class);
-    }
-
-    public function tariffs()
-    {
-        return $this->hasMany(MasterTariff::class);
-    }
-
-    public function payments()
-    {
-        return $this->hasMany(Payment::class);
-    }
-
-    public function blacklists()
-    {
-        return $this->belongsToMany(Client::class, 'blacklist', 'master_id', 'client_id')->withPivot('reason');
-    }
-}
-
-
-========== File: app/Models/MasterAuthProvider.php ==========
-<?php
-
-namespace App\Models;
-
-use Illuminate\Database\Eloquent\Model;
-
-class MasterAuthProvider extends Model
-{
-    protected $table = 'master_auth_providers';
-    protected $fillable = ['master_id', 'provider', 'provider_id'];
-
-    public function master()
-    {
-        return $this->belongsTo(Master::class);
-    }
-}
-
-
-========== File: app/Models/MasterTariff.php ==========
-<?php
-
-namespace App\Models;
-
-use Illuminate\Database\Eloquent\Model;
-
-class MasterTariff extends Model
-{
-    protected $fillable = ['master_id', 'tariff_id', 'start_date', 'end_date'];
-
-    public function master()
-    {
-        return $this->belongsTo(Master::class);
-    }
-
-    public function tariff()
-    {
-        return $this->belongsTo(Tariff::class);
-    }
-}
-
-========== File: app/Models/OtpCode.php ==========
-<?php
-
-namespace App\Models;
-
-use Illuminate\Database\Eloquent\Model;
-
-class OtpCode extends Model
-{
-    protected $fillable = ['identifier', 'type', 'code', 'expires_at', 'used'];
-}
-
-========== File: app/Models/Payment.php ==========
-<?php
-
-namespace App\Models;
-
-use Illuminate\Database\Eloquent\Model;
-
-class Payment extends Model
-{
-    protected $fillable = ['master_id', 'tariff_id', 'amount', 'status'];
-
-    public function master()
-    {
-        return $this->belongsTo(Master::class);
-    }
-
-    public function tariff()
-    {
-        return $this->belongsTo(Tariff::class);
-    }
-}
-
-
-========== File: app/Models/Project.php ==========
-<?php
-
-namespace App\Models;
-
-use Illuminate\Database\Eloquent\Model;
-
-class Project extends Model
-{
-    protected $fillable = ['master_id', 'name', 'description', 'slug'];
-
-    protected static function boot()
-    {
-        parent::boot();
-        static::creating(function ($project) {
-            if (empty($project->slug)) {
-                $project->slug = Str::slug($project->name);
-                $baseSlug = $project->slug;
-                $suffix = 1;
-                while (self::where('slug', $project->slug)->exists()) {
-                    $project->slug = $baseSlug . '-' . $suffix++;
-                }
+use Illuminate\Foundation\Application;
+use Illuminate\Foundation\Configuration\Exceptions;
+use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Http\Request;
+
+return Application::configure(basePath: dirname(__DIR__))
+    ->withRouting(
+        web: __DIR__.'/../routes/web.php',
+        commands: __DIR__.'/../routes/console.php',
+        health: '/up',
+    )
+    ->withMiddleware(function (Middleware $middleware): void {
+        $middleware->redirectGuestsTo(function (Request $request) {
+            if ($request->is('admin/*')) {
+                return route('admin.auth.login');
+            } elseif ($request->is('master/*')) {
+                return route('master.auth.login');
+            } elseif ($request->is('client/*')) {
+                return route('client.auth.login');
             }
+            return route('client.login'); // По умолчанию
         });
-    }
-    public function master()
-    {
-        return $this->belongsTo(Master::class);
-    }
-
-    public function services()
-    {
-        return $this->hasMany(Service::class);
-    }
-
-    public function categories()
-    {
-        return $this->hasMany(Category::class);
-    }
-
-    public function dailySchedules()
-    {
-        return $this->hasMany(DailySchedule::class);
-    }
-
-    public function dailyScheduleTemplates()
-    {
-        return $this->hasMany(DailyScheduleTemplate::class);
-    }
-
-    public function bookings()
-    {
-        return $this->hasMany(Booking::class);
-    }
-    public function clients()
-    {
-        return $this->belongsToMany(Client::class, 'client_projects', 'project_id', 'client_id');
-    }
-
-}
+    })
+    ->withExceptions(function (Exceptions $exceptions): void {
+        //
+    })->create();
 
 
-========== File: app/Models/Service.php ==========
+========== File: bootstrap/cache/config.php ==========
+<?php return array (
+  'broadcasting' => 
+  array (
+    'default' => 'log',
+    'connections' => 
+    array (
+      'reverb' => 
+      array (
+        'driver' => 'reverb',
+        'key' => NULL,
+        'secret' => NULL,
+        'app_id' => NULL,
+        'options' => 
+        array (
+          'host' => NULL,
+          'port' => 443,
+          'scheme' => 'https',
+          'useTLS' => true,
+        ),
+        'client_options' => 
+        array (
+        ),
+      ),
+      'pusher' => 
+      array (
+        'driver' => 'pusher',
+        'key' => NULL,
+        'secret' => NULL,
+        'app_id' => NULL,
+        'options' => 
+        array (
+          'cluster' => NULL,
+          'host' => 'api-mt1.pusher.com',
+          'port' => 443,
+          'scheme' => 'https',
+          'encrypted' => true,
+          'useTLS' => true,
+        ),
+        'client_options' => 
+        array (
+        ),
+      ),
+      'ably' => 
+      array (
+        'driver' => 'ably',
+        'key' => NULL,
+      ),
+      'log' => 
+      array (
+        'driver' => 'log',
+      ),
+      'null' => 
+      array (
+        'driver' => 'null',
+      ),
+    ),
+  ),
+  'concurrency' => 
+  array (
+    'default' => 'process',
+  ),
+  'cors' => 
+  array (
+    'paths' => 
+    array (
+      0 => 'api/*',
+      1 => 'sanctum/csrf-cookie',
+    ),
+    'allowed_methods' => 
+    array (
+      0 => '*',
+    ),
+    'allowed_origins' => 
+    array (
+      0 => '*',
+    ),
+    'allowed_origins_patterns' => 
+    array (
+    ),
+    'allowed_headers' => 
+    array (
+      0 => '*',
+    ),
+    'exposed_headers' => 
+    array (
+    ),
+    'max_age' => 0,
+    'supports_credentials' => false,
+  ),
+  'hashing' => 
+  array (
+    'driver' => 'bcrypt',
+    'bcrypt' => 
+    array (
+      'rounds' => '12',
+      'verify' => true,
+      'limit' => NULL,
+    ),
+    'argon' => 
+    array (
+      'memory' => 65536,
+      'threads' => 1,
+      'time' => 4,
+      'verify' => true,
+    ),
+    'rehash_on_login' => true,
+  ),
+  'view' => 
+  array (
+    'paths' => 
+    array (
+      0 => 'E:\\web\\www\\html\\yourord.ru\\yourord.ru\\resources\\views',
+    ),
+    'compiled' => 'E:\\web\\www\\html\\yourord.ru\\yourord.ru\\storage\\framework\\views',
+  ),
+  'app' => 
+  array (
+    'name' => 'YourOrd',
+    'env' => 'local',
+    'debug' => true,
+    'url' => 'http://localhost',
+    'frontend_url' => 'http://localhost:3000',
+    'asset_url' => NULL,
+    'timezone' => 'UTC',
+    'locale' => 'ru',
+    'fallback_locale' => 'ru',
+    'faker_locale' => 'ru_RU',
+    'cipher' => 'AES-256-CBC',
+    'key' => 'base64:e8oQpgWA4giUQNK4hMqbDilzSZ9dwnmoTqNqLSBim1s=',
+    'previous_keys' => 
+    array (
+    ),
+    'maintenance' => 
+    array (
+      'driver' => 'file',
+      'store' => 'database',
+    ),
+    'providers' => 
+    array (
+      0 => 'Illuminate\\Auth\\AuthServiceProvider',
+      1 => 'Illuminate\\Broadcasting\\BroadcastServiceProvider',
+      2 => 'Illuminate\\Bus\\BusServiceProvider',
+      3 => 'Illuminate\\Cache\\CacheServiceProvider',
+      4 => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+      5 => 'Illuminate\\Concurrency\\ConcurrencyServiceProvider',
+      6 => 'Illuminate\\Cookie\\CookieServiceProvider',
+      7 => 'Illuminate\\Database\\DatabaseServiceProvider',
+      8 => 'Illuminate\\Encryption\\EncryptionServiceProvider',
+      9 => 'Illuminate\\Filesystem\\FilesystemServiceProvider',
+      10 => 'Illuminate\\Foundation\\Providers\\FoundationServiceProvider',
+      11 => 'Illuminate\\Hashing\\HashServiceProvider',
+      12 => 'Illuminate\\Mail\\MailServiceProvider',
+      13 => 'Illuminate\\Notifications\\NotificationServiceProvider',
+      14 => 'Illuminate\\Pagination\\PaginationServiceProvider',
+      15 => 'Illuminate\\Auth\\Passwords\\PasswordResetServiceProvider',
+      16 => 'Illuminate\\Pipeline\\PipelineServiceProvider',
+      17 => 'Illuminate\\Queue\\QueueServiceProvider',
+      18 => 'Illuminate\\Redis\\RedisServiceProvider',
+      19 => 'Illuminate\\Session\\SessionServiceProvider',
+      20 => 'Illuminate\\Translation\\TranslationServiceProvider',
+      21 => 'Illuminate\\Validation\\ValidationServiceProvider',
+      22 => 'Illuminate\\View\\ViewServiceProvider',
+      23 => 'App\\Providers\\AppServiceProvider',
+    ),
+    'aliases' => 
+    array (
+      'App' => 'Illuminate\\Support\\Facades\\App',
+      'Arr' => 'Illuminate\\Support\\Arr',
+      'Artisan' => 'Illuminate\\Support\\Facades\\Artisan',
+      'Auth' => 'Illuminate\\Support\\Facades\\Auth',
+      'Blade' => 'Illuminate\\Support\\Facades\\Blade',
+      'Broadcast' => 'Illuminate\\Support\\Facades\\Broadcast',
+      'Bus' => 'Illuminate\\Support\\Facades\\Bus',
+      'Cache' => 'Illuminate\\Support\\Facades\\Cache',
+      'Concurrency' => 'Illuminate\\Support\\Facades\\Concurrency',
+      'Config' => 'Illuminate\\Support\\Facades\\Config',
+      'Context' => 'Illuminate\\Support\\Facades\\Context',
+      'Cookie' => 'Illuminate\\Support\\Facades\\Cookie',
+      'Crypt' => 'Illuminate\\Support\\Facades\\Crypt',
+      'Date' => 'Illuminate\\Support\\Facades\\Date',
+      'DB' => 'Illuminate\\Support\\Facades\\DB',
+      'Eloquent' => 'Illuminate\\Database\\Eloquent\\Model',
+      'Event' => 'Illuminate\\Support\\Facades\\Event',
+      'File' => 'Illuminate\\Support\\Facades\\File',
+      'Gate' => 'Illuminate\\Support\\Facades\\Gate',
+      'Hash' => 'Illuminate\\Support\\Facades\\Hash',
+      'Http' => 'Illuminate\\Support\\Facades\\Http',
+      'Js' => 'Illuminate\\Support\\Js',
+      'Lang' => 'Illuminate\\Support\\Facades\\Lang',
+      'Log' => 'Illuminate\\Support\\Facades\\Log',
+      'Mail' => 'Illuminate\\Support\\Facades\\Mail',
+      'Notification' => 'Illuminate\\Support\\Facades\\Notification',
+      'Number' => 'Illuminate\\Support\\Number',
+      'Password' => 'Illuminate\\Support\\Facades\\Password',
+      'Process' => 'Illuminate\\Support\\Facades\\Process',
+      'Queue' => 'Illuminate\\Support\\Facades\\Queue',
+      'RateLimiter' => 'Illuminate\\Support\\Facades\\RateLimiter',
+      'Redirect' => 'Illuminate\\Support\\Facades\\Redirect',
+      'Request' => 'Illuminate\\Support\\Facades\\Request',
+      'Response' => 'Illuminate\\Support\\Facades\\Response',
+      'Route' => 'Illuminate\\Support\\Facades\\Route',
+      'Schedule' => 'Illuminate\\Support\\Facades\\Schedule',
+      'Schema' => 'Illuminate\\Support\\Facades\\Schema',
+      'Session' => 'Illuminate\\Support\\Facades\\Session',
+      'Storage' => 'Illuminate\\Support\\Facades\\Storage',
+      'Str' => 'Illuminate\\Support\\Str',
+      'URL' => 'Illuminate\\Support\\Facades\\URL',
+      'Uri' => 'Illuminate\\Support\\Uri',
+      'Validator' => 'Illuminate\\Support\\Facades\\Validator',
+      'View' => 'Illuminate\\Support\\Facades\\View',
+      'Vite' => 'Illuminate\\Support\\Facades\\Vite',
+    ),
+  ),
+  'auth' => 
+  array (
+    'defaults' => 
+    array (
+      'guard' => 'web',
+      'passwords' => 'users',
+    ),
+    'guards' => 
+    array (
+      'web' => 
+      array (
+        'driver' => 'session',
+        'provider' => 'users',
+      ),
+      'client' => 
+      array (
+        'driver' => 'session',
+        'provider' => 'clients',
+      ),
+      'master' => 
+      array (
+        'driver' => 'session',
+        'provider' => 'masters',
+      ),
+      'sanctum' => 
+      array (
+        'driver' => 'sanctum',
+        'provider' => NULL,
+      ),
+    ),
+    'providers' => 
+    array (
+      'users' => 
+      array (
+        'driver' => 'eloquent',
+        'model' => 'App\\Models\\User',
+      ),
+      'clients' => 
+      array (
+        'driver' => 'eloquent',
+        'model' => 'App\\Models\\Client',
+      ),
+      'masters' => 
+      array (
+        'driver' => 'eloquent',
+        'model' => 'App\\Models\\Master',
+      ),
+    ),
+    'passwords' => 
+    array (
+      'users' => 
+      array (
+        'provider' => 'users',
+        'table' => 'password_reset_tokens',
+        'expire' => 60,
+        'throttle' => 60,
+      ),
+    ),
+    'password_timeout' => 10800,
+  ),
+  'cache' => 
+  array (
+    'default' => 'database',
+    'stores' => 
+    array (
+      'array' => 
+      array (
+        'driver' => 'array',
+        'serialize' => false,
+      ),
+      'database' => 
+      array (
+        'driver' => 'database',
+        'connection' => NULL,
+        'table' => 'cache',
+        'lock_connection' => NULL,
+        'lock_table' => NULL,
+      ),
+      'file' => 
+      array (
+        'driver' => 'file',
+        'path' => 'E:\\web\\www\\html\\yourord.ru\\yourord.ru\\storage\\framework/cache/data',
+        'lock_path' => 'E:\\web\\www\\html\\yourord.ru\\yourord.ru\\storage\\framework/cache/data',
+      ),
+      'memcached' => 
+      array (
+        'driver' => 'memcached',
+        'persistent_id' => NULL,
+        'sasl' => 
+        array (
+          0 => NULL,
+          1 => NULL,
+        ),
+        'options' => 
+        array (
+        ),
+        'servers' => 
+        array (
+          0 => 
+          array (
+            'host' => '127.0.0.1',
+            'port' => 11211,
+            'weight' => 100,
+          ),
+        ),
+      ),
+      'redis' => 
+      array (
+        'driver' => 'redis',
+        'connection' => 'cache',
+        'lock_connection' => 'default',
+      ),
+      'dynamodb' => 
+      array (
+        'driver' => 'dynamodb',
+        'key' => '',
+        'secret' => '',
+        'region' => 'us-east-1',
+        'table' => 'cache',
+        'endpoint' => NULL,
+      ),
+      'octane' => 
+      array (
+        'driver' => 'octane',
+      ),
+    ),
+    'prefix' => 'yourord-cache-',
+  ),
+  'database' => 
+  array (
+    'default' => 'mysql',
+    'connections' => 
+    array (
+      'sqlite' => 
+      array (
+        'driver' => 'sqlite',
+        'url' => NULL,
+        'database' => 'yourord',
+        'prefix' => '',
+        'foreign_key_constraints' => true,
+        'busy_timeout' => NULL,
+        'journal_mode' => NULL,
+        'synchronous' => NULL,
+      ),
+      'mysql' => 
+      array (
+        'driver' => 'mysql',
+        'url' => NULL,
+        'host' => 'MySQL-8.2',
+        'port' => '3306',
+        'database' => 'yourord',
+        'username' => 'root',
+        'password' => '',
+        'unix_socket' => '',
+        'charset' => 'utf8mb4',
+        'collation' => 'utf8mb4_unicode_ci',
+        'prefix' => '',
+        'prefix_indexes' => true,
+        'strict' => true,
+        'engine' => NULL,
+        'options' => 
+        array (
+        ),
+      ),
+      'mariadb' => 
+      array (
+        'driver' => 'mariadb',
+        'url' => NULL,
+        'host' => 'MySQL-8.2',
+        'port' => '3306',
+        'database' => 'yourord',
+        'username' => 'root',
+        'password' => '',
+        'unix_socket' => '',
+        'charset' => 'utf8mb4',
+        'collation' => 'utf8mb4_unicode_ci',
+        'prefix' => '',
+        'prefix_indexes' => true,
+        'strict' => true,
+        'engine' => NULL,
+        'options' => 
+        array (
+        ),
+      ),
+      'pgsql' => 
+      array (
+        'driver' => 'pgsql',
+        'url' => NULL,
+        'host' => 'MySQL-8.2',
+        'port' => '3306',
+        'database' => 'yourord',
+        'username' => 'root',
+        'password' => '',
+        'charset' => 'utf8',
+        'prefix' => '',
+        'prefix_indexes' => true,
+        'search_path' => 'public',
+        'sslmode' => 'prefer',
+      ),
+      'sqlsrv' => 
+      array (
+        'driver' => 'sqlsrv',
+        'url' => NULL,
+        'host' => 'MySQL-8.2',
+        'port' => '3306',
+        'database' => 'yourord',
+        'username' => 'root',
+        'password' => '',
+        'charset' => 'utf8',
+        'prefix' => '',
+        'prefix_indexes' => true,
+      ),
+    ),
+    'migrations' => 
+    array (
+      'table' => 'migrations',
+      'update_date_on_publish' => true,
+    ),
+    'redis' => 
+    array (
+      'client' => 'phpredis',
+      'options' => 
+      array (
+        'cluster' => 'redis',
+        'prefix' => 'yourord-database-',
+        'persistent' => false,
+      ),
+      'default' => 
+      array (
+        'url' => NULL,
+        'host' => '127.0.0.1',
+        'username' => NULL,
+        'password' => NULL,
+        'port' => '6379',
+        'database' => '0',
+      ),
+      'cache' => 
+      array (
+        'url' => NULL,
+        'host' => '127.0.0.1',
+        'username' => NULL,
+        'password' => NULL,
+        'port' => '6379',
+        'database' => '1',
+      ),
+    ),
+  ),
+  'filesystems' => 
+  array (
+    'default' => 'local',
+    'disks' => 
+    array (
+      'local' => 
+      array (
+        'driver' => 'local',
+        'root' => 'E:\\web\\www\\html\\yourord.ru\\yourord.ru\\storage\\app/private',
+        'serve' => true,
+        'throw' => false,
+        'report' => false,
+      ),
+      'public' => 
+      array (
+        'driver' => 'local',
+        'root' => 'E:\\web\\www\\html\\yourord.ru\\yourord.ru\\storage\\app/public',
+        'url' => 'http://localhost/storage',
+        'visibility' => 'public',
+        'throw' => false,
+        'report' => false,
+      ),
+      's3' => 
+      array (
+        'driver' => 's3',
+        'key' => '',
+        'secret' => '',
+        'region' => 'us-east-1',
+        'bucket' => '',
+        'url' => NULL,
+        'endpoint' => NULL,
+        'use_path_style_endpoint' => false,
+        'throw' => false,
+        'report' => false,
+      ),
+    ),
+    'links' => 
+    array (
+      'E:\\web\\www\\html\\yourord.ru\\yourord.ru\\public\\storage' => 'E:\\web\\www\\html\\yourord.ru\\yourord.ru\\storage\\app/public',
+    ),
+  ),
+  'logging' => 
+  array (
+    'default' => 'stack',
+    'deprecations' => 
+    array (
+      'channel' => NULL,
+      'trace' => false,
+    ),
+    'channels' => 
+    array (
+      'stack' => 
+      array (
+        'driver' => 'stack',
+        'channels' => 
+        array (
+          0 => 'single',
+        ),
+        'ignore_exceptions' => false,
+      ),
+      'single' => 
+      array (
+        'driver' => 'single',
+        'path' => 'E:\\web\\www\\html\\yourord.ru\\yourord.ru\\storage\\logs/laravel.log',
+        'level' => 'debug',
+        'replace_placeholders' => true,
+      ),
+      'daily' => 
+      array (
+        'driver' => 'daily',
+        'path' => 'E:\\web\\www\\html\\yourord.ru\\yourord.ru\\storage\\logs/laravel.log',
+        'level' => 'debug',
+        'days' => 14,
+        'replace_placeholders' => true,
+      ),
+      'slack' => 
+      array (
+        'driver' => 'slack',
+        'url' => NULL,
+        'username' => 'Laravel Log',
+        'emoji' => ':boom:',
+        'level' => 'debug',
+        'replace_placeholders' => true,
+      ),
+      'papertrail' => 
+      array (
+        'driver' => 'monolog',
+        'level' => 'debug',
+        'handler' => 'Monolog\\Handler\\SyslogUdpHandler',
+        'handler_with' => 
+        array (
+          'host' => NULL,
+          'port' => NULL,
+          'connectionString' => 'tls://:',
+        ),
+        'processors' => 
+        array (
+          0 => 'Monolog\\Processor\\PsrLogMessageProcessor',
+        ),
+      ),
+      'stderr' => 
+      array (
+        'driver' => 'monolog',
+        'level' => 'debug',
+        'handler' => 'Monolog\\Handler\\StreamHandler',
+        'handler_with' => 
+        array (
+          'stream' => 'php://stderr',
+        ),
+        'formatter' => NULL,
+        'processors' => 
+        array (
+          0 => 'Monolog\\Processor\\PsrLogMessageProcessor',
+        ),
+      ),
+      'syslog' => 
+      array (
+        'driver' => 'syslog',
+        'level' => 'debug',
+        'facility' => 8,
+        'replace_placeholders' => true,
+      ),
+      'errorlog' => 
+      array (
+        'driver' => 'errorlog',
+        'level' => 'debug',
+        'replace_placeholders' => true,
+      ),
+      'null' => 
+      array (
+        'driver' => 'monolog',
+        'handler' => 'Monolog\\Handler\\NullHandler',
+      ),
+      'emergency' => 
+      array (
+        'path' => 'E:\\web\\www\\html\\yourord.ru\\yourord.ru\\storage\\logs/laravel.log',
+      ),
+    ),
+  ),
+  'mail' => 
+  array (
+    'default' => 'log',
+    'mailers' => 
+    array (
+      'smtp' => 
+      array (
+        'transport' => 'smtp',
+        'scheme' => NULL,
+        'url' => NULL,
+        'host' => '127.0.0.1',
+        'port' => '2525',
+        'username' => NULL,
+        'password' => NULL,
+        'timeout' => NULL,
+        'local_domain' => 'localhost',
+      ),
+      'ses' => 
+      array (
+        'transport' => 'ses',
+      ),
+      'postmark' => 
+      array (
+        'transport' => 'postmark',
+      ),
+      'resend' => 
+      array (
+        'transport' => 'resend',
+      ),
+      'sendmail' => 
+      array (
+        'transport' => 'sendmail',
+        'path' => '/usr/sbin/sendmail -bs -i',
+      ),
+      'log' => 
+      array (
+        'transport' => 'log',
+        'channel' => NULL,
+      ),
+      'array' => 
+      array (
+        'transport' => 'array',
+      ),
+      'failover' => 
+      array (
+        'transport' => 'failover',
+        'mailers' => 
+        array (
+          0 => 'smtp',
+          1 => 'log',
+        ),
+        'retry_after' => 60,
+      ),
+      'roundrobin' => 
+      array (
+        'transport' => 'roundrobin',
+        'mailers' => 
+        array (
+          0 => 'ses',
+          1 => 'postmark',
+        ),
+        'retry_after' => 60,
+      ),
+    ),
+    'from' => 
+    array (
+      'address' => 'hello@example.com',
+      'name' => 'YourOrd',
+    ),
+    'markdown' => 
+    array (
+      'theme' => 'default',
+      'paths' => 
+      array (
+        0 => 'E:\\web\\www\\html\\yourord.ru\\yourord.ru\\resources\\views/vendor/mail',
+      ),
+    ),
+  ),
+  'queue' => 
+  array (
+    'default' => 'database',
+    'connections' => 
+    array (
+      'sync' => 
+      array (
+        'driver' => 'sync',
+      ),
+      'database' => 
+      array (
+        'driver' => 'database',
+        'connection' => NULL,
+        'table' => 'jobs',
+        'queue' => 'default',
+        'retry_after' => 90,
+        'after_commit' => false,
+      ),
+      'beanstalkd' => 
+      array (
+        'driver' => 'beanstalkd',
+        'host' => 'localhost',
+        'queue' => 'default',
+        'retry_after' => 90,
+        'block_for' => 0,
+        'after_commit' => false,
+      ),
+      'sqs' => 
+      array (
+        'driver' => 'sqs',
+        'key' => '',
+        'secret' => '',
+        'prefix' => 'https://sqs.us-east-1.amazonaws.com/your-account-id',
+        'queue' => 'default',
+        'suffix' => NULL,
+        'region' => 'us-east-1',
+        'after_commit' => false,
+      ),
+      'redis' => 
+      array (
+        'driver' => 'redis',
+        'connection' => 'default',
+        'queue' => 'default',
+        'retry_after' => 90,
+        'block_for' => NULL,
+        'after_commit' => false,
+      ),
+    ),
+    'batching' => 
+    array (
+      'database' => 'mysql',
+      'table' => 'job_batches',
+    ),
+    'failed' => 
+    array (
+      'driver' => 'database-uuids',
+      'database' => 'mysql',
+      'table' => 'failed_jobs',
+    ),
+  ),
+  'services' => 
+  array (
+    'postmark' => 
+    array (
+      'token' => NULL,
+    ),
+    'resend' => 
+    array (
+      'key' => NULL,
+    ),
+    'ses' => 
+    array (
+      'key' => '',
+      'secret' => '',
+      'region' => 'us-east-1',
+    ),
+    'slack' => 
+    array (
+      'notifications' => 
+      array (
+        'bot_user_oauth_token' => NULL,
+        'channel' => NULL,
+      ),
+    ),
+  ),
+  'session' => 
+  array (
+    'driver' => 'database',
+    'lifetime' => 120,
+    'expire_on_close' => false,
+    'encrypt' => false,
+    'files' => 'E:\\web\\www\\html\\yourord.ru\\yourord.ru\\storage\\framework/sessions',
+    'connection' => NULL,
+    'table' => 'sessions',
+    'store' => NULL,
+    'lottery' => 
+    array (
+      0 => 2,
+      1 => 100,
+    ),
+    'cookie' => 'your_ord_session',
+    'path' => '/',
+    'domain' => NULL,
+    'secure' => NULL,
+    'http_only' => true,
+    'same_site' => 'lax',
+    'partitioned' => false,
+  ),
+  'sanctum' => 
+  array (
+    'stateful' => 
+    array (
+      0 => 'localhost',
+      1 => 'localhost:3000',
+      2 => '127.0.0.1',
+      3 => '127.0.0.1:8000',
+      4 => '::1',
+      5 => 'localhost',
+    ),
+    'guard' => 
+    array (
+      0 => 'web',
+    ),
+    'expiration' => NULL,
+    'token_prefix' => '',
+    'middleware' => 
+    array (
+      'authenticate_session' => 'Laravel\\Sanctum\\Http\\Middleware\\AuthenticateSession',
+      'encrypt_cookies' => 'Illuminate\\Cookie\\Middleware\\EncryptCookies',
+      'validate_csrf_token' => 'Illuminate\\Foundation\\Http\\Middleware\\ValidateCsrfToken',
+    ),
+  ),
+  'tinker' => 
+  array (
+    'commands' => 
+    array (
+    ),
+    'alias' => 
+    array (
+    ),
+    'dont_alias' => 
+    array (
+      0 => 'App\\Nova',
+    ),
+  ),
+);
+
+
+========== File: bootstrap/cache/packages.php ==========
+<?php return array (
+  'laravel/breeze' => 
+  array (
+    'providers' => 
+    array (
+      0 => 'Laravel\\Breeze\\BreezeServiceProvider',
+    ),
+  ),
+  'laravel/pail' => 
+  array (
+    'providers' => 
+    array (
+      0 => 'Laravel\\Pail\\PailServiceProvider',
+    ),
+  ),
+  'laravel/sail' => 
+  array (
+    'providers' => 
+    array (
+      0 => 'Laravel\\Sail\\SailServiceProvider',
+    ),
+  ),
+  'laravel/sanctum' => 
+  array (
+    'providers' => 
+    array (
+      0 => 'Laravel\\Sanctum\\SanctumServiceProvider',
+    ),
+  ),
+  'laravel/tinker' => 
+  array (
+    'providers' => 
+    array (
+      0 => 'Laravel\\Tinker\\TinkerServiceProvider',
+    ),
+  ),
+  'nesbot/carbon' => 
+  array (
+    'providers' => 
+    array (
+      0 => 'Carbon\\Laravel\\ServiceProvider',
+    ),
+  ),
+  'nunomaduro/collision' => 
+  array (
+    'providers' => 
+    array (
+      0 => 'NunoMaduro\\Collision\\Adapters\\Laravel\\CollisionServiceProvider',
+    ),
+  ),
+  'nunomaduro/termwind' => 
+  array (
+    'providers' => 
+    array (
+      0 => 'Termwind\\Laravel\\TermwindServiceProvider',
+    ),
+  ),
+);
+
+========== File: bootstrap/cache/services.php ==========
+<?php return array (
+  'providers' => 
+  array (
+    0 => 'Illuminate\\Auth\\AuthServiceProvider',
+    1 => 'Illuminate\\Broadcasting\\BroadcastServiceProvider',
+    2 => 'Illuminate\\Bus\\BusServiceProvider',
+    3 => 'Illuminate\\Cache\\CacheServiceProvider',
+    4 => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    5 => 'Illuminate\\Concurrency\\ConcurrencyServiceProvider',
+    6 => 'Illuminate\\Cookie\\CookieServiceProvider',
+    7 => 'Illuminate\\Database\\DatabaseServiceProvider',
+    8 => 'Illuminate\\Encryption\\EncryptionServiceProvider',
+    9 => 'Illuminate\\Filesystem\\FilesystemServiceProvider',
+    10 => 'Illuminate\\Foundation\\Providers\\FoundationServiceProvider',
+    11 => 'Illuminate\\Hashing\\HashServiceProvider',
+    12 => 'Illuminate\\Mail\\MailServiceProvider',
+    13 => 'Illuminate\\Notifications\\NotificationServiceProvider',
+    14 => 'Illuminate\\Pagination\\PaginationServiceProvider',
+    15 => 'Illuminate\\Auth\\Passwords\\PasswordResetServiceProvider',
+    16 => 'Illuminate\\Pipeline\\PipelineServiceProvider',
+    17 => 'Illuminate\\Queue\\QueueServiceProvider',
+    18 => 'Illuminate\\Redis\\RedisServiceProvider',
+    19 => 'Illuminate\\Session\\SessionServiceProvider',
+    20 => 'Illuminate\\Translation\\TranslationServiceProvider',
+    21 => 'Illuminate\\Validation\\ValidationServiceProvider',
+    22 => 'Illuminate\\View\\ViewServiceProvider',
+    23 => 'Laravel\\Breeze\\BreezeServiceProvider',
+    24 => 'Laravel\\Pail\\PailServiceProvider',
+    25 => 'Laravel\\Sail\\SailServiceProvider',
+    26 => 'Laravel\\Sanctum\\SanctumServiceProvider',
+    27 => 'Laravel\\Tinker\\TinkerServiceProvider',
+    28 => 'Carbon\\Laravel\\ServiceProvider',
+    29 => 'NunoMaduro\\Collision\\Adapters\\Laravel\\CollisionServiceProvider',
+    30 => 'Termwind\\Laravel\\TermwindServiceProvider',
+    31 => 'App\\Providers\\AppServiceProvider',
+  ),
+  'eager' => 
+  array (
+    0 => 'Illuminate\\Auth\\AuthServiceProvider',
+    1 => 'Illuminate\\Cookie\\CookieServiceProvider',
+    2 => 'Illuminate\\Database\\DatabaseServiceProvider',
+    3 => 'Illuminate\\Encryption\\EncryptionServiceProvider',
+    4 => 'Illuminate\\Filesystem\\FilesystemServiceProvider',
+    5 => 'Illuminate\\Foundation\\Providers\\FoundationServiceProvider',
+    6 => 'Illuminate\\Notifications\\NotificationServiceProvider',
+    7 => 'Illuminate\\Pagination\\PaginationServiceProvider',
+    8 => 'Illuminate\\Session\\SessionServiceProvider',
+    9 => 'Illuminate\\View\\ViewServiceProvider',
+    10 => 'Laravel\\Pail\\PailServiceProvider',
+    11 => 'Laravel\\Sanctum\\SanctumServiceProvider',
+    12 => 'Carbon\\Laravel\\ServiceProvider',
+    13 => 'NunoMaduro\\Collision\\Adapters\\Laravel\\CollisionServiceProvider',
+    14 => 'Termwind\\Laravel\\TermwindServiceProvider',
+    15 => 'App\\Providers\\AppServiceProvider',
+  ),
+  'deferred' => 
+  array (
+    'Illuminate\\Broadcasting\\BroadcastManager' => 'Illuminate\\Broadcasting\\BroadcastServiceProvider',
+    'Illuminate\\Contracts\\Broadcasting\\Factory' => 'Illuminate\\Broadcasting\\BroadcastServiceProvider',
+    'Illuminate\\Contracts\\Broadcasting\\Broadcaster' => 'Illuminate\\Broadcasting\\BroadcastServiceProvider',
+    'Illuminate\\Bus\\Dispatcher' => 'Illuminate\\Bus\\BusServiceProvider',
+    'Illuminate\\Contracts\\Bus\\Dispatcher' => 'Illuminate\\Bus\\BusServiceProvider',
+    'Illuminate\\Contracts\\Bus\\QueueingDispatcher' => 'Illuminate\\Bus\\BusServiceProvider',
+    'Illuminate\\Bus\\BatchRepository' => 'Illuminate\\Bus\\BusServiceProvider',
+    'Illuminate\\Bus\\DatabaseBatchRepository' => 'Illuminate\\Bus\\BusServiceProvider',
+    'cache' => 'Illuminate\\Cache\\CacheServiceProvider',
+    'cache.store' => 'Illuminate\\Cache\\CacheServiceProvider',
+    'cache.psr6' => 'Illuminate\\Cache\\CacheServiceProvider',
+    'memcached.connector' => 'Illuminate\\Cache\\CacheServiceProvider',
+    'Illuminate\\Cache\\RateLimiter' => 'Illuminate\\Cache\\CacheServiceProvider',
+    'Illuminate\\Foundation\\Console\\AboutCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Cache\\Console\\ClearCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Cache\\Console\\ForgetCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Foundation\\Console\\ClearCompiledCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Auth\\Console\\ClearResetsCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Foundation\\Console\\ConfigCacheCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Foundation\\Console\\ConfigClearCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Foundation\\Console\\ConfigShowCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Database\\Console\\DbCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Database\\Console\\MonitorCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Database\\Console\\PruneCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Database\\Console\\ShowCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Database\\Console\\TableCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Database\\Console\\WipeCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Foundation\\Console\\DownCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Foundation\\Console\\EnvironmentCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Foundation\\Console\\EnvironmentDecryptCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Foundation\\Console\\EnvironmentEncryptCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Foundation\\Console\\EventCacheCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Foundation\\Console\\EventClearCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Foundation\\Console\\EventListCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Concurrency\\Console\\InvokeSerializedClosureCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Foundation\\Console\\KeyGenerateCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Foundation\\Console\\OptimizeCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Foundation\\Console\\OptimizeClearCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Foundation\\Console\\PackageDiscoverCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Cache\\Console\\PruneStaleTagsCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Queue\\Console\\ClearCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Queue\\Console\\ListFailedCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Queue\\Console\\FlushFailedCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Queue\\Console\\ForgetFailedCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Queue\\Console\\ListenCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Queue\\Console\\MonitorCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Queue\\Console\\PruneBatchesCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Queue\\Console\\PruneFailedJobsCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Queue\\Console\\RestartCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Queue\\Console\\RetryCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Queue\\Console\\RetryBatchCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Queue\\Console\\WorkCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Foundation\\Console\\RouteCacheCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Foundation\\Console\\RouteClearCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Foundation\\Console\\RouteListCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Database\\Console\\DumpCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Database\\Console\\Seeds\\SeedCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Console\\Scheduling\\ScheduleFinishCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Console\\Scheduling\\ScheduleListCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Console\\Scheduling\\ScheduleRunCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Console\\Scheduling\\ScheduleClearCacheCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Console\\Scheduling\\ScheduleTestCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Console\\Scheduling\\ScheduleWorkCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Console\\Scheduling\\ScheduleInterruptCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Database\\Console\\ShowModelCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Foundation\\Console\\StorageLinkCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Foundation\\Console\\StorageUnlinkCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Foundation\\Console\\UpCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Foundation\\Console\\ViewCacheCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Foundation\\Console\\ViewClearCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Foundation\\Console\\ApiInstallCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Foundation\\Console\\BroadcastingInstallCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Cache\\Console\\CacheTableCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Foundation\\Console\\CastMakeCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Foundation\\Console\\ChannelListCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Foundation\\Console\\ChannelMakeCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Foundation\\Console\\ClassMakeCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Foundation\\Console\\ComponentMakeCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Foundation\\Console\\ConfigPublishCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Foundation\\Console\\ConsoleMakeCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Routing\\Console\\ControllerMakeCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Foundation\\Console\\DocsCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Foundation\\Console\\EnumMakeCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Foundation\\Console\\EventGenerateCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Foundation\\Console\\EventMakeCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Foundation\\Console\\ExceptionMakeCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Database\\Console\\Factories\\FactoryMakeCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Foundation\\Console\\InterfaceMakeCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Foundation\\Console\\JobMakeCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Foundation\\Console\\JobMiddlewareMakeCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Foundation\\Console\\LangPublishCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Foundation\\Console\\ListenerMakeCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Foundation\\Console\\MailMakeCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Routing\\Console\\MiddlewareMakeCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Foundation\\Console\\ModelMakeCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Foundation\\Console\\NotificationMakeCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Notifications\\Console\\NotificationTableCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Foundation\\Console\\ObserverMakeCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Foundation\\Console\\PolicyMakeCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Foundation\\Console\\ProviderMakeCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Queue\\Console\\FailedTableCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Queue\\Console\\TableCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Queue\\Console\\BatchesTableCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Foundation\\Console\\RequestMakeCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Foundation\\Console\\ResourceMakeCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Foundation\\Console\\RuleMakeCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Foundation\\Console\\ScopeMakeCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Database\\Console\\Seeds\\SeederMakeCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Session\\Console\\SessionTableCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Foundation\\Console\\ServeCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Foundation\\Console\\StubPublishCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Foundation\\Console\\TestMakeCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Foundation\\Console\\TraitMakeCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Foundation\\Console\\VendorPublishCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Foundation\\Console\\ViewMakeCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'migrator' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'migration.repository' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'migration.creator' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Database\\Migrations\\Migrator' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Database\\Console\\Migrations\\MigrateCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Database\\Console\\Migrations\\FreshCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Database\\Console\\Migrations\\InstallCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Database\\Console\\Migrations\\RefreshCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Database\\Console\\Migrations\\ResetCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Database\\Console\\Migrations\\RollbackCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Database\\Console\\Migrations\\StatusCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Database\\Console\\Migrations\\MigrateMakeCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'composer' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Concurrency\\ConcurrencyManager' => 'Illuminate\\Concurrency\\ConcurrencyServiceProvider',
+    'hash' => 'Illuminate\\Hashing\\HashServiceProvider',
+    'hash.driver' => 'Illuminate\\Hashing\\HashServiceProvider',
+    'mail.manager' => 'Illuminate\\Mail\\MailServiceProvider',
+    'mailer' => 'Illuminate\\Mail\\MailServiceProvider',
+    'Illuminate\\Mail\\Markdown' => 'Illuminate\\Mail\\MailServiceProvider',
+    'auth.password' => 'Illuminate\\Auth\\Passwords\\PasswordResetServiceProvider',
+    'auth.password.broker' => 'Illuminate\\Auth\\Passwords\\PasswordResetServiceProvider',
+    'Illuminate\\Contracts\\Pipeline\\Hub' => 'Illuminate\\Pipeline\\PipelineServiceProvider',
+    'pipeline' => 'Illuminate\\Pipeline\\PipelineServiceProvider',
+    'queue' => 'Illuminate\\Queue\\QueueServiceProvider',
+    'queue.connection' => 'Illuminate\\Queue\\QueueServiceProvider',
+    'queue.failer' => 'Illuminate\\Queue\\QueueServiceProvider',
+    'queue.listener' => 'Illuminate\\Queue\\QueueServiceProvider',
+    'queue.worker' => 'Illuminate\\Queue\\QueueServiceProvider',
+    'redis' => 'Illuminate\\Redis\\RedisServiceProvider',
+    'redis.connection' => 'Illuminate\\Redis\\RedisServiceProvider',
+    'translator' => 'Illuminate\\Translation\\TranslationServiceProvider',
+    'translation.loader' => 'Illuminate\\Translation\\TranslationServiceProvider',
+    'validator' => 'Illuminate\\Validation\\ValidationServiceProvider',
+    'validation.presence' => 'Illuminate\\Validation\\ValidationServiceProvider',
+    'Illuminate\\Contracts\\Validation\\UncompromisedVerifier' => 'Illuminate\\Validation\\ValidationServiceProvider',
+    'Laravel\\Breeze\\Console\\InstallCommand' => 'Laravel\\Breeze\\BreezeServiceProvider',
+    'Laravel\\Sail\\Console\\InstallCommand' => 'Laravel\\Sail\\SailServiceProvider',
+    'Laravel\\Sail\\Console\\PublishCommand' => 'Laravel\\Sail\\SailServiceProvider',
+    'command.tinker' => 'Laravel\\Tinker\\TinkerServiceProvider',
+  ),
+  'when' => 
+  array (
+    'Illuminate\\Broadcasting\\BroadcastServiceProvider' => 
+    array (
+    ),
+    'Illuminate\\Bus\\BusServiceProvider' => 
+    array (
+    ),
+    'Illuminate\\Cache\\CacheServiceProvider' => 
+    array (
+    ),
+    'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider' => 
+    array (
+    ),
+    'Illuminate\\Concurrency\\ConcurrencyServiceProvider' => 
+    array (
+    ),
+    'Illuminate\\Hashing\\HashServiceProvider' => 
+    array (
+    ),
+    'Illuminate\\Mail\\MailServiceProvider' => 
+    array (
+    ),
+    'Illuminate\\Auth\\Passwords\\PasswordResetServiceProvider' => 
+    array (
+    ),
+    'Illuminate\\Pipeline\\PipelineServiceProvider' => 
+    array (
+    ),
+    'Illuminate\\Queue\\QueueServiceProvider' => 
+    array (
+    ),
+    'Illuminate\\Redis\\RedisServiceProvider' => 
+    array (
+    ),
+    'Illuminate\\Translation\\TranslationServiceProvider' => 
+    array (
+    ),
+    'Illuminate\\Validation\\ValidationServiceProvider' => 
+    array (
+    ),
+    'Laravel\\Breeze\\BreezeServiceProvider' => 
+    array (
+    ),
+    'Laravel\\Sail\\SailServiceProvider' => 
+    array (
+    ),
+    'Laravel\\Tinker\\TinkerServiceProvider' => 
+    array (
+    ),
+  ),
+);
+
+========== File: bootstrap/providers.php ==========
 <?php
 
-namespace App\Models;
-
-use Illuminate\Database\Eloquent\Model;
-
-class Service extends Model
-{
-    protected $fillable = ['project_id', 'category_id', 'name', 'duration', 'price'];
-
-    public function project()
-    {
-        return $this->belongsTo(Project::class);
-    }
-
-    public function category()
-    {
-        return $this->belongsTo(Category::class);
-    }
-
-    public function bookings()
-    {
-        return $this->hasMany(Booking::class);
-    }
-}
+return [
+    App\Providers\AppServiceProvider::class,
+];
 
 
-========== File: app/Models/Tariff.php ==========
+========== File: config/app.php ==========
 <?php
 
-namespace App\Models;
+return [
 
-use Illuminate\Database\Eloquent\Model;
+    /*
+    |--------------------------------------------------------------------------
+    | Application Name
+    |--------------------------------------------------------------------------
+    |
+    | This value is the name of your application, which will be used when the
+    | framework needs to place the application's name in a notification or
+    | other UI elements where an application name needs to be displayed.
+    |
+    */
 
-class Tariff extends Model
-{
-    protected $fillable = ['name', 'price', 'duration_days'];
+    'name' => env('APP_NAME', 'Laravel'),
 
-    public function masterTariffs()
-    {
-        return $this->hasMany(MasterTariff::class);
-    }
+    /*
+    |--------------------------------------------------------------------------
+    | Application Environment
+    |--------------------------------------------------------------------------
+    |
+    | This value determines the "environment" your application is currently
+    | running in. This may determine how you prefer to configure various
+    | services the application utilizes. Set this in your ".env" file.
+    |
+    */
 
-    public function payments()
-    {
-        return $this->hasMany(Payment::class);
-    }
-}
+    'env' => env('APP_ENV', 'production'),
 
-========== File: app/Models/User.php ==========
+    /*
+    |--------------------------------------------------------------------------
+    | Application Debug Mode
+    |--------------------------------------------------------------------------
+    |
+    | When your application is in debug mode, detailed error messages with
+    | stack traces will be shown on every error that occurs within your
+    | application. If disabled, a simple generic error page is shown.
+    |
+    */
+
+    'debug' => (bool) env('APP_DEBUG', false),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Application URL
+    |--------------------------------------------------------------------------
+    |
+    | This URL is used by the console to properly generate URLs when using
+    | the Artisan command line tool. You should set this to the root of
+    | the application so that it's available within Artisan commands.
+    |
+    */
+
+    'url' => env('APP_URL', 'http://localhost'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Application Timezone
+    |--------------------------------------------------------------------------
+    |
+    | Here you may specify the default timezone for your application, which
+    | will be used by the PHP date and date-time functions. The timezone
+    | is set to "UTC" by default as it is suitable for most use cases.
+    |
+    */
+
+    'timezone' => 'UTC',
+
+    /*
+    |--------------------------------------------------------------------------
+    | Application Locale Configuration
+    |--------------------------------------------------------------------------
+    |
+    | The application locale determines the default locale that will be used
+    | by Laravel's translation / localization methods. This option can be
+    | set to any locale for which you plan to have translation strings.
+    |
+    */
+
+    'locale' => env('APP_LOCALE', 'en'),
+
+    'fallback_locale' => env('APP_FALLBACK_LOCALE', 'en'),
+
+    'faker_locale' => env('APP_FAKER_LOCALE', 'en_US'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Encryption Key
+    |--------------------------------------------------------------------------
+    |
+    | This key is utilized by Laravel's encryption services and should be set
+    | to a random, 32 character string to ensure that all encrypted values
+    | are secure. You should do this prior to deploying the application.
+    |
+    */
+
+    'cipher' => 'AES-256-CBC',
+
+    'key' => env('APP_KEY'),
+
+    'previous_keys' => [
+        ...array_filter(
+            explode(',', (string) env('APP_PREVIOUS_KEYS', ''))
+        ),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Maintenance Mode Driver
+    |--------------------------------------------------------------------------
+    |
+    | These configuration options determine the driver used to determine and
+    | manage Laravel's "maintenance mode" status. The "cache" driver will
+    | allow maintenance mode to be controlled across multiple machines.
+    |
+    | Supported drivers: "file", "cache"
+    |
+    */
+
+    'maintenance' => [
+        'driver' => env('APP_MAINTENANCE_DRIVER', 'file'),
+        'store' => env('APP_MAINTENANCE_STORE', 'database'),
+    ],
+
+];
+
+
+========== File: config/auth.php ==========
 <?php
 
-namespace App\Models;
-
-// use Illuminate\Contracts\Auth\MustVerifyEmail;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Foundation\Auth\User as Authenticatable;
-use Illuminate\Notifications\Notifiable;
-
-class User extends Authenticatable
-{
-    /** @use HasFactory<\Database\Factories\UserFactory> */
-    use HasFactory, Notifiable;
-
-    /**
-     * The attributes that are mass assignable.
-     *
-     * @var list<string>
-     */
-    protected $fillable = [
-        'name',
-        'email',
-        'password',
-    ];
-
-    /**
-     * The attributes that should be hidden for serialization.
-     *
-     * @var list<string>
-     */
-    protected $hidden = [
-        'password',
-        'remember_token',
-    ];
-
-    /**
-     * Get the attributes that should be cast.
-     *
-     * @return array<string, string>
-     */
-    protected function casts(): array
-    {
-        return [
-            'email_verified_at' => 'datetime',
-            'password' => 'hashed',
-        ];
-    }
-}
+return [
+    'defaults' => [
+        'guard' => 'web',
+        'passwords' => 'users',
+    ],
+    'guards' => [
+        'web' => [
+            'driver' => 'session',
+            'provider' => 'users',
+        ],
+        'client' => [
+            'driver' => 'session',
+            'provider' => 'clients',
+        ],
+        'master' => [
+            'driver' => 'session',
+            'provider' => 'masters',
+        ],
+    ],
+    'providers' => [
+        'users' => [
+            'driver' => 'eloquent',
+            'model' => App\Models\User::class,
+        ],
+        'clients' => [
+            'driver' => 'eloquent',
+            'model' => App\Models\Client::class,
+        ],
+        'masters' => [
+            'driver' => 'eloquent',
+            'model' => App\Models\Master::class,
+        ],
+    ],
+    'passwords' => [
+        'users' => [
+            'provider' => 'users',
+            'table' => 'password_reset_tokens',
+            'expire' => 60,
+            'throttle' => 60,
+        ],
+    ],
+];
 
 
-========== File: app/Models/WorkBreak.php ==========
+========== File: config/cache.php ==========
 <?php
 
-namespace App\Models;
+use Illuminate\Support\Str;
 
-use Illuminate\Database\Eloquent\Model;
+return [
 
-class WorkBreak extends Model
-{
-    protected $fillable = ['daily_schedule_id', 'start_time', 'end_time'];
+    /*
+    |--------------------------------------------------------------------------
+    | Default Cache Store
+    |--------------------------------------------------------------------------
+    |
+    | This option controls the default cache store that will be used by the
+    | framework. This connection is utilized if another isn't explicitly
+    | specified when running a cache operation inside the application.
+    |
+    */
 
-    public function dailySchedule()
-    {
-        return $this->belongsTo(DailySchedule::class);
-    }
-}
+    'default' => env('CACHE_STORE', 'database'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Cache Stores
+    |--------------------------------------------------------------------------
+    |
+    | Here you may define all of the cache "stores" for your application as
+    | well as their drivers. You may even define multiple stores for the
+    | same cache driver to group types of items stored in your caches.
+    |
+    | Supported drivers: "array", "database", "file", "memcached",
+    |                    "redis", "dynamodb", "octane", "null"
+    |
+    */
+
+    'stores' => [
+
+        'array' => [
+            'driver' => 'array',
+            'serialize' => false,
+        ],
+
+        'database' => [
+            'driver' => 'database',
+            'connection' => env('DB_CACHE_CONNECTION'),
+            'table' => env('DB_CACHE_TABLE', 'cache'),
+            'lock_connection' => env('DB_CACHE_LOCK_CONNECTION'),
+            'lock_table' => env('DB_CACHE_LOCK_TABLE'),
+        ],
+
+        'file' => [
+            'driver' => 'file',
+            'path' => storage_path('framework/cache/data'),
+            'lock_path' => storage_path('framework/cache/data'),
+        ],
+
+        'memcached' => [
+            'driver' => 'memcached',
+            'persistent_id' => env('MEMCACHED_PERSISTENT_ID'),
+            'sasl' => [
+                env('MEMCACHED_USERNAME'),
+                env('MEMCACHED_PASSWORD'),
+            ],
+            'options' => [
+                // Memcached::OPT_CONNECT_TIMEOUT => 2000,
+            ],
+            'servers' => [
+                [
+                    'host' => env('MEMCACHED_HOST', '127.0.0.1'),
+                    'port' => env('MEMCACHED_PORT', 11211),
+                    'weight' => 100,
+                ],
+            ],
+        ],
+
+        'redis' => [
+            'driver' => 'redis',
+            'connection' => env('REDIS_CACHE_CONNECTION', 'cache'),
+            'lock_connection' => env('REDIS_CACHE_LOCK_CONNECTION', 'default'),
+        ],
+
+        'dynamodb' => [
+            'driver' => 'dynamodb',
+            'key' => env('AWS_ACCESS_KEY_ID'),
+            'secret' => env('AWS_SECRET_ACCESS_KEY'),
+            'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
+            'table' => env('DYNAMODB_CACHE_TABLE', 'cache'),
+            'endpoint' => env('DYNAMODB_ENDPOINT'),
+        ],
+
+        'octane' => [
+            'driver' => 'octane',
+        ],
+
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Cache Key Prefix
+    |--------------------------------------------------------------------------
+    |
+    | When utilizing the APC, database, memcached, Redis, and DynamoDB cache
+    | stores, there might be other applications using the same cache. For
+    | that reason, you may prefix every cache key to avoid collisions.
+    |
+    */
+
+    'prefix' => env('CACHE_PREFIX', Str::slug((string) env('APP_NAME', 'laravel')).'-cache-'),
+
+];
+
+
+========== File: config/database.php ==========
+<?php
+
+use Illuminate\Support\Str;
+
+return [
+
+    /*
+    |--------------------------------------------------------------------------
+    | Default Database Connection Name
+    |--------------------------------------------------------------------------
+    |
+    | Here you may specify which of the database connections below you wish
+    | to use as your default connection for database operations. This is
+    | the connection which will be utilized unless another connection
+    | is explicitly specified when you execute a query / statement.
+    |
+    */
+
+    'default' => env('DB_CONNECTION', 'sqlite'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Database Connections
+    |--------------------------------------------------------------------------
+    |
+    | Below are all of the database connections defined for your application.
+    | An example configuration is provided for each database system which
+    | is supported by Laravel. You're free to add / remove connections.
+    |
+    */
+
+    'connections' => [
+
+        'sqlite' => [
+            'driver' => 'sqlite',
+            'url' => env('DB_URL'),
+            'database' => env('DB_DATABASE', database_path('database.sqlite')),
+            'prefix' => '',
+            'foreign_key_constraints' => env('DB_FOREIGN_KEYS', true),
+            'busy_timeout' => null,
+            'journal_mode' => null,
+            'synchronous' => null,
+        ],
+
+        'mysql' => [
+            'driver' => 'mysql',
+            'url' => env('DB_URL'),
+            'host' => env('DB_HOST', '127.0.0.1'),
+            'port' => env('DB_PORT', '3306'),
+            'database' => env('DB_DATABASE', 'laravel'),
+            'username' => env('DB_USERNAME', 'root'),
+            'password' => env('DB_PASSWORD', ''),
+            'unix_socket' => env('DB_SOCKET', ''),
+            'charset' => env('DB_CHARSET', 'utf8mb4'),
+            'collation' => env('DB_COLLATION', 'utf8mb4_unicode_ci'),
+            'prefix' => '',
+            'prefix_indexes' => true,
+            'strict' => true,
+            'engine' => null,
+            'options' => extension_loaded('pdo_mysql') ? array_filter([
+                PDO::MYSQL_ATTR_SSL_CA => env('MYSQL_ATTR_SSL_CA'),
+            ]) : [],
+        ],
+
+        'mariadb' => [
+            'driver' => 'mariadb',
+            'url' => env('DB_URL'),
+            'host' => env('DB_HOST', '127.0.0.1'),
+            'port' => env('DB_PORT', '3306'),
+            'database' => env('DB_DATABASE', 'laravel'),
+            'username' => env('DB_USERNAME', 'root'),
+            'password' => env('DB_PASSWORD', ''),
+            'unix_socket' => env('DB_SOCKET', ''),
+            'charset' => env('DB_CHARSET', 'utf8mb4'),
+            'collation' => env('DB_COLLATION', 'utf8mb4_unicode_ci'),
+            'prefix' => '',
+            'prefix_indexes' => true,
+            'strict' => true,
+            'engine' => null,
+            'options' => extension_loaded('pdo_mysql') ? array_filter([
+                PDO::MYSQL_ATTR_SSL_CA => env('MYSQL_ATTR_SSL_CA'),
+            ]) : [],
+        ],
+
+        'pgsql' => [
+            'driver' => 'pgsql',
+            'url' => env('DB_URL'),
+            'host' => env('DB_HOST', '127.0.0.1'),
+            'port' => env('DB_PORT', '5432'),
+            'database' => env('DB_DATABASE', 'laravel'),
+            'username' => env('DB_USERNAME', 'root'),
+            'password' => env('DB_PASSWORD', ''),
+            'charset' => env('DB_CHARSET', 'utf8'),
+            'prefix' => '',
+            'prefix_indexes' => true,
+            'search_path' => 'public',
+            'sslmode' => 'prefer',
+        ],
+
+        'sqlsrv' => [
+            'driver' => 'sqlsrv',
+            'url' => env('DB_URL'),
+            'host' => env('DB_HOST', 'localhost'),
+            'port' => env('DB_PORT', '1433'),
+            'database' => env('DB_DATABASE', 'laravel'),
+            'username' => env('DB_USERNAME', 'root'),
+            'password' => env('DB_PASSWORD', ''),
+            'charset' => env('DB_CHARSET', 'utf8'),
+            'prefix' => '',
+            'prefix_indexes' => true,
+            // 'encrypt' => env('DB_ENCRYPT', 'yes'),
+            // 'trust_server_certificate' => env('DB_TRUST_SERVER_CERTIFICATE', 'false'),
+        ],
+
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Migration Repository Table
+    |--------------------------------------------------------------------------
+    |
+    | This table keeps track of all the migrations that have already run for
+    | your application. Using this information, we can determine which of
+    | the migrations on disk haven't actually been run on the database.
+    |
+    */
+
+    'migrations' => [
+        'table' => 'migrations',
+        'update_date_on_publish' => true,
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Redis Databases
+    |--------------------------------------------------------------------------
+    |
+    | Redis is an open source, fast, and advanced key-value store that also
+    | provides a richer body of commands than a typical key-value system
+    | such as Memcached. You may define your connection settings here.
+    |
+    */
+
+    'redis' => [
+
+        'client' => env('REDIS_CLIENT', 'phpredis'),
+
+        'options' => [
+            'cluster' => env('REDIS_CLUSTER', 'redis'),
+            'prefix' => env('REDIS_PREFIX', Str::slug((string) env('APP_NAME', 'laravel')).'-database-'),
+            'persistent' => env('REDIS_PERSISTENT', false),
+        ],
+
+        'default' => [
+            'url' => env('REDIS_URL'),
+            'host' => env('REDIS_HOST', '127.0.0.1'),
+            'username' => env('REDIS_USERNAME'),
+            'password' => env('REDIS_PASSWORD'),
+            'port' => env('REDIS_PORT', '6379'),
+            'database' => env('REDIS_DB', '0'),
+        ],
+
+        'cache' => [
+            'url' => env('REDIS_URL'),
+            'host' => env('REDIS_HOST', '127.0.0.1'),
+            'username' => env('REDIS_USERNAME'),
+            'password' => env('REDIS_PASSWORD'),
+            'port' => env('REDIS_PORT', '6379'),
+            'database' => env('REDIS_CACHE_DB', '1'),
+        ],
+
+    ],
+
+];
+
+
+========== File: config/filesystems.php ==========
+<?php
+
+return [
+
+    /*
+    |--------------------------------------------------------------------------
+    | Default Filesystem Disk
+    |--------------------------------------------------------------------------
+    |
+    | Here you may specify the default filesystem disk that should be used
+    | by the framework. The "local" disk, as well as a variety of cloud
+    | based disks are available to your application for file storage.
+    |
+    */
+
+    'default' => env('FILESYSTEM_DISK', 'local'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Filesystem Disks
+    |--------------------------------------------------------------------------
+    |
+    | Below you may configure as many filesystem disks as necessary, and you
+    | may even configure multiple disks for the same driver. Examples for
+    | most supported storage drivers are configured here for reference.
+    |
+    | Supported drivers: "local", "ftp", "sftp", "s3"
+    |
+    */
+
+    'disks' => [
+
+        'local' => [
+            'driver' => 'local',
+            'root' => storage_path('app/private'),
+            'serve' => true,
+            'throw' => false,
+            'report' => false,
+        ],
+
+        'public' => [
+            'driver' => 'local',
+            'root' => storage_path('app/public'),
+            'url' => env('APP_URL').'/storage',
+            'visibility' => 'public',
+            'throw' => false,
+            'report' => false,
+        ],
+
+        's3' => [
+            'driver' => 's3',
+            'key' => env('AWS_ACCESS_KEY_ID'),
+            'secret' => env('AWS_SECRET_ACCESS_KEY'),
+            'region' => env('AWS_DEFAULT_REGION'),
+            'bucket' => env('AWS_BUCKET'),
+            'url' => env('AWS_URL'),
+            'endpoint' => env('AWS_ENDPOINT'),
+            'use_path_style_endpoint' => env('AWS_USE_PATH_STYLE_ENDPOINT', false),
+            'throw' => false,
+            'report' => false,
+        ],
+
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Symbolic Links
+    |--------------------------------------------------------------------------
+    |
+    | Here you may configure the symbolic links that will be created when the
+    | `storage:link` Artisan command is executed. The array keys should be
+    | the locations of the links and the values should be their targets.
+    |
+    */
+
+    'links' => [
+        public_path('storage') => storage_path('app/public'),
+    ],
+
+];
+
+
+========== File: config/logging.php ==========
+<?php
+
+use Monolog\Handler\NullHandler;
+use Monolog\Handler\StreamHandler;
+use Monolog\Handler\SyslogUdpHandler;
+use Monolog\Processor\PsrLogMessageProcessor;
+
+return [
+
+    /*
+    |--------------------------------------------------------------------------
+    | Default Log Channel
+    |--------------------------------------------------------------------------
+    |
+    | This option defines the default log channel that is utilized to write
+    | messages to your logs. The value provided here should match one of
+    | the channels present in the list of "channels" configured below.
+    |
+    */
+
+    'default' => env('LOG_CHANNEL', 'stack'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Deprecations Log Channel
+    |--------------------------------------------------------------------------
+    |
+    | This option controls the log channel that should be used to log warnings
+    | regarding deprecated PHP and library features. This allows you to get
+    | your application ready for upcoming major versions of dependencies.
+    |
+    */
+
+    'deprecations' => [
+        'channel' => env('LOG_DEPRECATIONS_CHANNEL', 'null'),
+        'trace' => env('LOG_DEPRECATIONS_TRACE', false),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Log Channels
+    |--------------------------------------------------------------------------
+    |
+    | Here you may configure the log channels for your application. Laravel
+    | utilizes the Monolog PHP logging library, which includes a variety
+    | of powerful log handlers and formatters that you're free to use.
+    |
+    | Available drivers: "single", "daily", "slack", "syslog",
+    |                    "errorlog", "monolog", "custom", "stack"
+    |
+    */
+
+    'channels' => [
+
+        'stack' => [
+            'driver' => 'stack',
+            'channels' => explode(',', (string) env('LOG_STACK', 'single')),
+            'ignore_exceptions' => false,
+        ],
+
+        'single' => [
+            'driver' => 'single',
+            'path' => storage_path('logs/laravel.log'),
+            'level' => env('LOG_LEVEL', 'debug'),
+            'replace_placeholders' => true,
+        ],
+
+        'daily' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/laravel.log'),
+            'level' => env('LOG_LEVEL', 'debug'),
+            'days' => env('LOG_DAILY_DAYS', 14),
+            'replace_placeholders' => true,
+        ],
+
+        'slack' => [
+            'driver' => 'slack',
+            'url' => env('LOG_SLACK_WEBHOOK_URL'),
+            'username' => env('LOG_SLACK_USERNAME', 'Laravel Log'),
+            'emoji' => env('LOG_SLACK_EMOJI', ':boom:'),
+            'level' => env('LOG_LEVEL', 'critical'),
+            'replace_placeholders' => true,
+        ],
+
+        'papertrail' => [
+            'driver' => 'monolog',
+            'level' => env('LOG_LEVEL', 'debug'),
+            'handler' => env('LOG_PAPERTRAIL_HANDLER', SyslogUdpHandler::class),
+            'handler_with' => [
+                'host' => env('PAPERTRAIL_URL'),
+                'port' => env('PAPERTRAIL_PORT'),
+                'connectionString' => 'tls://'.env('PAPERTRAIL_URL').':'.env('PAPERTRAIL_PORT'),
+            ],
+            'processors' => [PsrLogMessageProcessor::class],
+        ],
+
+        'stderr' => [
+            'driver' => 'monolog',
+            'level' => env('LOG_LEVEL', 'debug'),
+            'handler' => StreamHandler::class,
+            'handler_with' => [
+                'stream' => 'php://stderr',
+            ],
+            'formatter' => env('LOG_STDERR_FORMATTER'),
+            'processors' => [PsrLogMessageProcessor::class],
+        ],
+
+        'syslog' => [
+            'driver' => 'syslog',
+            'level' => env('LOG_LEVEL', 'debug'),
+            'facility' => env('LOG_SYSLOG_FACILITY', LOG_USER),
+            'replace_placeholders' => true,
+        ],
+
+        'errorlog' => [
+            'driver' => 'errorlog',
+            'level' => env('LOG_LEVEL', 'debug'),
+            'replace_placeholders' => true,
+        ],
+
+        'null' => [
+            'driver' => 'monolog',
+            'handler' => NullHandler::class,
+        ],
+
+        'emergency' => [
+            'path' => storage_path('logs/laravel.log'),
+        ],
+
+    ],
+
+];
+
+
+========== File: config/mail.php ==========
+<?php
+
+return [
+
+    /*
+    |--------------------------------------------------------------------------
+    | Default Mailer
+    |--------------------------------------------------------------------------
+    |
+    | This option controls the default mailer that is used to send all email
+    | messages unless another mailer is explicitly specified when sending
+    | the message. All additional mailers can be configured within the
+    | "mailers" array. Examples of each type of mailer are provided.
+    |
+    */
+
+    'default' => env('MAIL_MAILER', 'log'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Mailer Configurations
+    |--------------------------------------------------------------------------
+    |
+    | Here you may configure all of the mailers used by your application plus
+    | their respective settings. Several examples have been configured for
+    | you and you are free to add your own as your application requires.
+    |
+    | Laravel supports a variety of mail "transport" drivers that can be used
+    | when delivering an email. You may specify which one you're using for
+    | your mailers below. You may also add additional mailers if needed.
+    |
+    | Supported: "smtp", "sendmail", "mailgun", "ses", "ses-v2",
+    |            "postmark", "resend", "log", "array",
+    |            "failover", "roundrobin"
+    |
+    */
+
+    'mailers' => [
+
+        'smtp' => [
+            'transport' => 'smtp',
+            'scheme' => env('MAIL_SCHEME'),
+            'url' => env('MAIL_URL'),
+            'host' => env('MAIL_HOST', '127.0.0.1'),
+            'port' => env('MAIL_PORT', 2525),
+            'username' => env('MAIL_USERNAME'),
+            'password' => env('MAIL_PASSWORD'),
+            'timeout' => null,
+            'local_domain' => env('MAIL_EHLO_DOMAIN', parse_url((string) env('APP_URL', 'http://localhost'), PHP_URL_HOST)),
+        ],
+
+        'ses' => [
+            'transport' => 'ses',
+        ],
+
+        'postmark' => [
+            'transport' => 'postmark',
+            // 'message_stream_id' => env('POSTMARK_MESSAGE_STREAM_ID'),
+            // 'client' => [
+            //     'timeout' => 5,
+            // ],
+        ],
+
+        'resend' => [
+            'transport' => 'resend',
+        ],
+
+        'sendmail' => [
+            'transport' => 'sendmail',
+            'path' => env('MAIL_SENDMAIL_PATH', '/usr/sbin/sendmail -bs -i'),
+        ],
+
+        'log' => [
+            'transport' => 'log',
+            'channel' => env('MAIL_LOG_CHANNEL'),
+        ],
+
+        'array' => [
+            'transport' => 'array',
+        ],
+
+        'failover' => [
+            'transport' => 'failover',
+            'mailers' => [
+                'smtp',
+                'log',
+            ],
+            'retry_after' => 60,
+        ],
+
+        'roundrobin' => [
+            'transport' => 'roundrobin',
+            'mailers' => [
+                'ses',
+                'postmark',
+            ],
+            'retry_after' => 60,
+        ],
+
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Global "From" Address
+    |--------------------------------------------------------------------------
+    |
+    | You may wish for all emails sent by your application to be sent from
+    | the same address. Here you may specify a name and address that is
+    | used globally for all emails that are sent by your application.
+    |
+    */
+
+    'from' => [
+        'address' => env('MAIL_FROM_ADDRESS', 'hello@example.com'),
+        'name' => env('MAIL_FROM_NAME', 'Example'),
+    ],
+
+];
+
+
+========== File: config/queue.php ==========
+<?php
+
+return [
+
+    /*
+    |--------------------------------------------------------------------------
+    | Default Queue Connection Name
+    |--------------------------------------------------------------------------
+    |
+    | Laravel's queue supports a variety of backends via a single, unified
+    | API, giving you convenient access to each backend using identical
+    | syntax for each. The default queue connection is defined below.
+    |
+    */
+
+    'default' => env('QUEUE_CONNECTION', 'database'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Queue Connections
+    |--------------------------------------------------------------------------
+    |
+    | Here you may configure the connection options for every queue backend
+    | used by your application. An example configuration is provided for
+    | each backend supported by Laravel. You're also free to add more.
+    |
+    | Drivers: "sync", "database", "beanstalkd", "sqs", "redis", "null"
+    |
+    */
+
+    'connections' => [
+
+        'sync' => [
+            'driver' => 'sync',
+        ],
+
+        'database' => [
+            'driver' => 'database',
+            'connection' => env('DB_QUEUE_CONNECTION'),
+            'table' => env('DB_QUEUE_TABLE', 'jobs'),
+            'queue' => env('DB_QUEUE', 'default'),
+            'retry_after' => (int) env('DB_QUEUE_RETRY_AFTER', 90),
+            'after_commit' => false,
+        ],
+
+        'beanstalkd' => [
+            'driver' => 'beanstalkd',
+            'host' => env('BEANSTALKD_QUEUE_HOST', 'localhost'),
+            'queue' => env('BEANSTALKD_QUEUE', 'default'),
+            'retry_after' => (int) env('BEANSTALKD_QUEUE_RETRY_AFTER', 90),
+            'block_for' => 0,
+            'after_commit' => false,
+        ],
+
+        'sqs' => [
+            'driver' => 'sqs',
+            'key' => env('AWS_ACCESS_KEY_ID'),
+            'secret' => env('AWS_SECRET_ACCESS_KEY'),
+            'prefix' => env('SQS_PREFIX', 'https://sqs.us-east-1.amazonaws.com/your-account-id'),
+            'queue' => env('SQS_QUEUE', 'default'),
+            'suffix' => env('SQS_SUFFIX'),
+            'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
+            'after_commit' => false,
+        ],
+
+        'redis' => [
+            'driver' => 'redis',
+            'connection' => env('REDIS_QUEUE_CONNECTION', 'default'),
+            'queue' => env('REDIS_QUEUE', 'default'),
+            'retry_after' => (int) env('REDIS_QUEUE_RETRY_AFTER', 90),
+            'block_for' => null,
+            'after_commit' => false,
+        ],
+
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Job Batching
+    |--------------------------------------------------------------------------
+    |
+    | The following options configure the database and table that store job
+    | batching information. These options can be updated to any database
+    | connection and table which has been defined by your application.
+    |
+    */
+
+    'batching' => [
+        'database' => env('DB_CONNECTION', 'sqlite'),
+        'table' => 'job_batches',
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Failed Queue Jobs
+    |--------------------------------------------------------------------------
+    |
+    | These options configure the behavior of failed queue job logging so you
+    | can control how and where failed jobs are stored. Laravel ships with
+    | support for storing failed jobs in a simple file or in a database.
+    |
+    | Supported drivers: "database-uuids", "dynamodb", "file", "null"
+    |
+    */
+
+    'failed' => [
+        'driver' => env('QUEUE_FAILED_DRIVER', 'database-uuids'),
+        'database' => env('DB_CONNECTION', 'sqlite'),
+        'table' => 'failed_jobs',
+    ],
+
+];
+
+
+========== File: config/services.php ==========
+<?php
+
+return [
+
+    /*
+    |--------------------------------------------------------------------------
+    | Third Party Services
+    |--------------------------------------------------------------------------
+    |
+    | This file is for storing the credentials for third party services such
+    | as Mailgun, Postmark, AWS and more. This file provides the de facto
+    | location for this type of information, allowing packages to have
+    | a conventional file to locate the various service credentials.
+    |
+    */
+
+    'postmark' => [
+        'token' => env('POSTMARK_TOKEN'),
+    ],
+
+    'resend' => [
+        'key' => env('RESEND_KEY'),
+    ],
+
+    'ses' => [
+        'key' => env('AWS_ACCESS_KEY_ID'),
+        'secret' => env('AWS_SECRET_ACCESS_KEY'),
+        'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
+    ],
+
+    'slack' => [
+        'notifications' => [
+            'bot_user_oauth_token' => env('SLACK_BOT_USER_OAUTH_TOKEN'),
+            'channel' => env('SLACK_BOT_USER_DEFAULT_CHANNEL'),
+        ],
+    ],
+
+];
+
+
+========== File: config/session.php ==========
+<?php
+
+use Illuminate\Support\Str;
+
+return [
+
+    /*
+    |--------------------------------------------------------------------------
+    | Default Session Driver
+    |--------------------------------------------------------------------------
+    |
+    | This option determines the default session driver that is utilized for
+    | incoming requests. Laravel supports a variety of storage options to
+    | persist session data. Database storage is a great default choice.
+    |
+    | Supported: "file", "cookie", "database", "memcached",
+    |            "redis", "dynamodb", "array"
+    |
+    */
+
+    'driver' => env('SESSION_DRIVER', 'database'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Session Lifetime
+    |--------------------------------------------------------------------------
+    |
+    | Here you may specify the number of minutes that you wish the session
+    | to be allowed to remain idle before it expires. If you want them
+    | to expire immediately when the browser is closed then you may
+    | indicate that via the expire_on_close configuration option.
+    |
+    */
+
+    'lifetime' => (int) env('SESSION_LIFETIME', 120),
+
+    'expire_on_close' => env('SESSION_EXPIRE_ON_CLOSE', false),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Session Encryption
+    |--------------------------------------------------------------------------
+    |
+    | This option allows you to easily specify that all of your session data
+    | should be encrypted before it's stored. All encryption is performed
+    | automatically by Laravel and you may use the session like normal.
+    |
+    */
+
+    'encrypt' => env('SESSION_ENCRYPT', false),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Session File Location
+    |--------------------------------------------------------------------------
+    |
+    | When utilizing the "file" session driver, the session files are placed
+    | on disk. The default storage location is defined here; however, you
+    | are free to provide another location where they should be stored.
+    |
+    */
+
+    'files' => storage_path('framework/sessions'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Session Database Connection
+    |--------------------------------------------------------------------------
+    |
+    | When using the "database" or "redis" session drivers, you may specify a
+    | connection that should be used to manage these sessions. This should
+    | correspond to a connection in your database configuration options.
+    |
+    */
+
+    'connection' => env('SESSION_CONNECTION'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Session Database Table
+    |--------------------------------------------------------------------------
+    |
+    | When using the "database" session driver, you may specify the table to
+    | be used to store sessions. Of course, a sensible default is defined
+    | for you; however, you're welcome to change this to another table.
+    |
+    */
+
+    'table' => env('SESSION_TABLE', 'sessions'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Session Cache Store
+    |--------------------------------------------------------------------------
+    |
+    | When using one of the framework's cache driven session backends, you may
+    | define the cache store which should be used to store the session data
+    | between requests. This must match one of your defined cache stores.
+    |
+    | Affects: "dynamodb", "memcached", "redis"
+    |
+    */
+
+    'store' => env('SESSION_STORE'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Session Sweeping Lottery
+    |--------------------------------------------------------------------------
+    |
+    | Some session drivers must manually sweep their storage location to get
+    | rid of old sessions from storage. Here are the chances that it will
+    | happen on a given request. By default, the odds are 2 out of 100.
+    |
+    */
+
+    'lottery' => [2, 100],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Session Cookie Name
+    |--------------------------------------------------------------------------
+    |
+    | Here you may change the name of the session cookie that is created by
+    | the framework. Typically, you should not need to change this value
+    | since doing so does not grant a meaningful security improvement.
+    |
+    */
+
+    'cookie' => env(
+        'SESSION_COOKIE',
+        Str::snake((string) env('APP_NAME', 'laravel')).'_session'
+    ),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Session Cookie Path
+    |--------------------------------------------------------------------------
+    |
+    | The session cookie path determines the path for which the cookie will
+    | be regarded as available. Typically, this will be the root path of
+    | your application, but you're free to change this when necessary.
+    |
+    */
+
+    'path' => env('SESSION_PATH', '/'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Session Cookie Domain
+    |--------------------------------------------------------------------------
+    |
+    | This value determines the domain and subdomains the session cookie is
+    | available to. By default, the cookie will be available to the root
+    | domain and all subdomains. Typically, this shouldn't be changed.
+    |
+    */
+
+    'domain' => env('SESSION_DOMAIN'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | HTTPS Only Cookies
+    |--------------------------------------------------------------------------
+    |
+    | By setting this option to true, session cookies will only be sent back
+    | to the server if the browser has a HTTPS connection. This will keep
+    | the cookie from being sent to you when it can't be done securely.
+    |
+    */
+
+    'secure' => env('SESSION_SECURE_COOKIE'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | HTTP Access Only
+    |--------------------------------------------------------------------------
+    |
+    | Setting this value to true will prevent JavaScript from accessing the
+    | value of the cookie and the cookie will only be accessible through
+    | the HTTP protocol. It's unlikely you should disable this option.
+    |
+    */
+
+    'http_only' => env('SESSION_HTTP_ONLY', true),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Same-Site Cookies
+    |--------------------------------------------------------------------------
+    |
+    | This option determines how your cookies behave when cross-site requests
+    | take place, and can be used to mitigate CSRF attacks. By default, we
+    | will set this value to "lax" to permit secure cross-site requests.
+    |
+    | See: https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Set-Cookie#samesitesamesite-value
+    |
+    | Supported: "lax", "strict", "none", null
+    |
+    */
+
+    'same_site' => env('SESSION_SAME_SITE', 'lax'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Partitioned Cookies
+    |--------------------------------------------------------------------------
+    |
+    | Setting this value to true will tie the cookie to the top-level site for
+    | a cross-site context. Partitioned cookies are accepted by the browser
+    | when flagged "secure" and the Same-Site attribute is set to "none".
+    |
+    */
+
+    'partitioned' => env('SESSION_PARTITIONED_COOKIE', false),
+
+];

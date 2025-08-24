@@ -13,11 +13,13 @@
 $config = [
     'directories' => [
         'app/Http/Controllers', // Папка с контроллерами
+        'app/Models',          // Папка с моделями
 //        'app/Http/Controllers/Auth',
         'database/migrations',  // Папка с миграциями в Laravel/Models',
         'resources/views',      // Папка с Blade-шаблонами
         'routes',              // Папка с маршрутами
-        'app/Models',          // Папка с моделями
+        'bootstrap',
+        'config'
     ],
     'extensions' => ['php', 'blade.php'], // Разрешённые расширения файлов
     'exclude_dirs' => ['vendor', 'node_modules', 'storage'], // Папки, которые нужно исключить
