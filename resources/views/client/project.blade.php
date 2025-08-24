@@ -1,4 +1,4 @@
-@extends('layouts.client')
+@extends('layouts.app')
 
 @section('title', 'Проект {{ $project->name }} - YourOrd')
 
@@ -11,9 +11,19 @@
                 {{ session('message') }}
             </div>
         @endif
+        @if (session('error'))
+            <div class="bg-red-100 text-red-800 p-4 rounded mb-4">
+                {{ session('error') }}
+            </div>
+        @endif
 
         @if (!Auth::guard('client')->check())
-            <p class="text-gray-600 mb-4">Пожалуйста, <a href="{{ route('client.login') }}" class="text-indigo-600">войдите</a>, чтобы забронировать услугу.</p>
+            <p class="text-gray-600 mb-4">Пожалуйста, <a href="{{ route('client.auth.login') }}" class="text-indigo-600">войдите</a>, чтобы забронировать или добавить в избранное.</p>
+        @else
+            <form method="POST" action="{{ route('client.project.favorite', $project->slug) }}" class="mb-4">
+                @csrf
+                <button type="submit" class="bg-gray-200 text-gray-800 px-4 py-2 rounded hover:bg-gray-300">Добавить в избранное</button>
+            </form>
         @endif
 
         <form method="GET" action="{{ route('client.project', $project->slug) }}" class="mb-6">
@@ -22,13 +32,13 @@
             <button type="submit" class="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700">Показать слоты</button>
         </form>
 
-        @foreach ($services as $service)
+        @forelse ($services as $service)
             <div class="mb-8">
                 <h3 class="text-xl font-semibold text-gray-700">{{ $service->name }} ({{ $service->duration }} минут, {{ $service->price }} руб.)</h3>
                 @if (empty($slotsByService[$service->id]))
                     <p class="text-gray-600">Нет доступных слотов на {{ \Carbon\Carbon::parse($date)->format('d.m.Y') }}.</p>
                 @else
-                    <form method="POST" action="{{ route('project.booking', $project->slug) }}">
+                    <form method="POST" action="{{ route('client.project.booking', $project->slug) }}">
                         @csrf
                         <input type="hidden" name="date" value="{{ $date }}">
                         <input type="hidden" name="service_id" value="{{ $service->id }}">
@@ -41,6 +51,8 @@
                     </form>
                 @endif
             </div>
-        @endforeach
+        @empty
+            <p class="text-gray-600">Услуги не найдены.</p>
+        @endforelse
     </div>
 @endsection
