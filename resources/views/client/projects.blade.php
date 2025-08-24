@@ -1,44 +1,51 @@
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Мои проекты - YourOrd</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-</head>
-<body>
-<div class="container mt-5">
-    <h1>Мои проекты</h1>
-    <nav class="nav mb-3">
-        <a class="nav-link" href="{{ route('client.dashboard') }}">Назад в кабинет</a>
-        <a class="nav-link" href="{{ route('client.bookings') }}">Мои записи</a>
-        <a class="nav-link" href="{{ route('client.auth.logout') }}">Выйти</a>
-    </nav>
+@extends('layouts.client')
 
-    <h2>Список избранных проектов</h2>
-    <table class="table table-striped">
-        <thead>
-        <tr>
-            <th>Название</th>
-            <th>Описание</th>
-            <th>Мастер</th>
-            <th>Действия</th>
-        </tr>
-        </thead>
-        <tbody>
+@section('title', 'Проекты - YourOrd')
+
+@section('content')
+    <div class="container mx-auto px-4 py-8">
+        <h2 class="text-2xl font-bold text-gray-800 mb-6">Доступные проекты</h2>
+
+        @if (session('message'))
+            <div class="bg-green-100 text-green-800 p-4 rounded mb-4">
+                {{ session('message') }}
+            </div>
+        @endif
+
+        @if (!Auth::guard('client')->check())
+            <p class="text-gray-600 mb-4">Пожалуйста, <a href="{{ route('client.login') }}" class="text-indigo-600">войдите</a>, чтобы забронировать услугу.</p>
+        @endif
+
+        <form method="GET" action="{{ route('client.projects') }}" class="mb-6">
+            <label for="date" class="block text-gray-600">Выберите дату:</label>
+            <input type="date" name="date" value="{{ $date }}" class="border rounded p-2">
+            <button type="submit" class="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700">Показать слоты</button>
+        </form>
+
         @foreach ($projects as $project)
-            <tr>
-                <td>{{ $project->name }}</td>
-                <td>{{ $project->description ?? '-' }}</td>
-                <td>{{ $project->master->name ?? $project->master->email }}</td>
-                <td>
-                    <a href="{{ route('client.project', $project->slug) }}" class="btn btn-primary btn-sm">Просмотреть</a>
-                </td>
-            </tr>
+            <div class="mb-8">
+                <h3 class="text-xl font-semibold text-gray-700">{{ $project->name }}</h3>
+                @foreach ($project->services as $service)
+                    <div class="ml-4 mb-4">
+                        <h4 class="text-lg font-medium text-gray-600">{{ $service->name }} ({{ $service->duration }} минут, {{ $service->price }} руб.)</h4>
+                        @if (empty($slotsByService[$service->id]))
+                            <p class="text-gray-600">Нет доступных слотов на {{ \Carbon\Carbon::parse($date)->format('d.m.Y') }}.</p>
+                        @else
+                            <form method="POST" action="{{ route('project.booking', $project->slug) }}">
+                                @csrf
+                                <input type="hidden" name="date" value="{{ $date }}">
+                                <input type="hidden" name="service_id" value="{{ $service->id }}">
+                                <select name="slot_start" class="border rounded p-2 mb-4">
+                                    @foreach ($slotsByService[$service->id] as $slot)
+                                        <option value="{{ $slot['start'] }}">{{ $slot['start'] }} - {{ $slot['end'] }}</option>
+                                    @endforeach
+                                </select>
+                                <button type="submit" class="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700" @if (!Auth::guard('client')->check()) disabled @endif>Забронировать</button>
+                            </form>
+                        @endif
+                    </div>
+                @endforeach
+            </div>
         @endforeach
-        </tbody>
-    </table>
-</div>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-</body>
-</html>
+    </div>
+@endsection

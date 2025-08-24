@@ -21,6 +21,7 @@ Route::prefix('client')->name('client.')->group(function () {
     Route::post('/project/{slug}/favorite', [ClientController::class, 'addProjectToFavorites'])->name('project.favorite');
     Route::post('/project/{slug}/booking', [ClientController::class, 'createBooking'])->name('project.booking');
     Route::patch('/bookings/{booking}/cancel', [ClientController::class, 'cancelBooking'])->name('bookings.cancel');
+//    Route::post('/client/project/{projectSlug}/services/{serviceId}/bookings', [ClientController::class, 'createBooking'])->name('client.bookings.create');
 });
 
 Route::prefix('master')->name('master.')->group(function () {
