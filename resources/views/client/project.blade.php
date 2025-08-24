@@ -1,4 +1,4 @@
-@extends('layouts.app')
+@extends('layouts.client')
 
 @section('title', 'Проект {{ $project->name }} - YourOrd')
 
@@ -32,7 +32,7 @@
             <button type="submit" class="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700">Показать слоты</button>
         </form>
 
-        @forelse ($services as $service)
+        @forelse ($project->services as $service)
             <div class="mb-8">
                 <h3 class="text-xl font-semibold text-gray-700">{{ $service->name }} ({{ $service->duration }} минут, {{ $service->price }} руб.)</h3>
                 @if (empty($slotsByService[$service->id]))
