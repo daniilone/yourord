@@ -18,6 +18,18 @@ class ClientController extends Controller
         $this->middleware('auth:client')->except(['projects', 'showProject']);
     }
 
+    public function dashboard()
+    {
+        Log::info('ClientController::dashboard started');
+        $client = Auth::guard('client')->user();
+        $bookings = Booking::where('client_id', $client->id)
+            ->with(['project', 'service', 'dailySchedule'])
+            ->orderBy('start_time', 'desc')
+            ->paginate(10);
+        Log::info('ClientController::dashboard completed', ['bookings_count' => $bookings->count()]);
+        return view('client.dashboard', compact('client', 'bookings'));
+    }
+
     public function projects(Request $request)
     {
         Log::info('ClientController::projects started', ['date' => $request->input('date')]);
@@ -67,11 +79,8 @@ class ClientController extends Controller
         ]);
 
         $minDuration = Service::where('project_id', $project->id)
-            ->select('duration')
-            ->orderBy('duration')
-            ->value('duration') ?? 30;
-
-        $slotStep = 15; // Шаг 15 минут для точного выравнивания
+            ->min('duration') ?? 30;
+        $slotStep = $minDuration;
 
         $dailySchedule = DailySchedule::where('project_id', $project->id)
             ->where('date', $date)
@@ -106,10 +115,13 @@ class ClientController extends Controller
             'currentTime' => $currentTime->toDateTimeString(),
             'endTime' => $endTime->toDateTimeString(),
             'slotStep' => $slotStep,
-            'service_duration' => $duration
+            'service_duration' => $duration,
+            'min_duration' => $minDuration,
+            'bookings_count' => $bookings->count(),
+            'breaks_count' => $breaks->count()
         ]);
 
-        while ($currentTime->lte($endTime->subMinutes($duration)) && $iterationCount < 1000) {
+        while ($currentTime->lte($endTime->copy()->subMinutes($duration)) && $iterationCount < 1000) {
             $slotEnd = $currentTime->copy()->addMinutes($duration);
             $isFree = true;
 
@@ -171,61 +183,81 @@ class ClientController extends Controller
     {
         $scheduleStart = Carbon::parse($date . ' ' . $dailySchedule->start_time);
         $scheduleEnd = Carbon::parse($date . ' ' . $dailySchedule->end_time);
-        $nextTime = $currentTime->copy()->addMinutes($slotStep);
+        $nextTime = $currentTime->copy();
+        $roundingInterval = 15; // Округление до 15 минут
 
         Log::debug('getNextSlotTime started', [
             'currentTime' => $currentTime->toDateTimeString(),
-            'slotStep' => $slotStep,
-            'nextTime_initial' => $nextTime->toDateTimeString()
+            'slotStep' => $slotStep
         ]);
 
-        // Проверка пересечений с бронированиями
+        // Проверка пересечений с бронированиями и перерывами
+        $slotEnd = $nextTime->copy()->addMinutes($service->duration);
+        $latestEnd = $nextTime;
+        $lastBookingDuration = null;
+
         foreach ($bookings as $booking) {
             $bookingStart = Carbon::parse($booking->start_time);
             $bookingEnd = $bookingStart->copy()->addMinutes($booking->service->duration);
-            $slotEnd = $currentTime->copy()->addMinutes($service->duration);
             if ($currentTime->lt($bookingEnd) && $slotEnd->gt($bookingStart)) {
-                $nextTime = $bookingEnd->copy();
-                Log::debug('Adjusted for booking overlap', [
+                if ($bookingEnd->gt($latestEnd)) {
+                    $latestEnd = $bookingEnd->copy();
+                    $lastBookingDuration = $booking->service->duration;
+                }
+                Log::debug('Overlap with booking', [
                     'booking_start' => $bookingStart->toDateTimeString(),
                     'booking_end' => $bookingEnd->toDateTimeString(),
-                    'new_next_time' => $nextTime->toDateTimeString()
+                    'current_slot_start' => $currentTime->toDateTimeString(),
+                    'current_slot_end' => $slotEnd->toDateTimeString()
                 ]);
-                break;
             }
         }
 
-        // Проверка пересечений с перерывами
         foreach ($breaks as $break) {
             $breakStart = Carbon::parse($date . ' ' . $break->start_time);
             $breakEnd = Carbon::parse($date . ' ' . $break->end_time);
-            $slotEnd = $currentTime->copy()->addMinutes($service->duration);
             if ($currentTime->lt($breakEnd) && $slotEnd->gt($breakStart)) {
-                $nextTime = $breakEnd->copy();
-                Log::debug('Adjusted for break overlap', [
+                if ($breakEnd->gt($latestEnd)) {
+                    $latestEnd = $breakEnd->copy();
+                    $lastBookingDuration = null; // Перерывы не влияют на округление
+                }
+                Log::debug('Overlap with break', [
                     'break_start' => $breakStart->toDateTimeString(),
                     'break_end' => $breakEnd->toDateTimeString(),
-                    'new_next_time' => $nextTime->toDateTimeString()
+                    'current_slot_start' => $currentTime->toDateTimeString(),
+                    'current_slot_end' => $slotEnd->toDateTimeString()
                 ]);
-                break;
             }
         }
 
-        // Выравнивание по шагу 15 минут относительно начала расписания
-        $minutesSinceStart = $nextTime->diffInMinutes($scheduleStart);
-        $alignedMinutes = ceil($minutesSinceStart / $slotStep) * $slotStep;
-        $nextTime = $scheduleStart->copy()->addMinutes($alignedMinutes);
+        // Если есть пересечения, берем конец самого позднего события
+        if ($latestEnd->gt($nextTime)) {
+            $nextTime = $latestEnd->copy();
+            Log::debug('Adjusted to latest end', ['new_next_time' => $nextTime->toDateTimeString()]);
+            // Округление до 15 минут, если длительность бронирования не кратна 15
+            if ($lastBookingDuration && ($lastBookingDuration % 15 !== 0)) {
+                $minutes = $nextTime->minute;
+                $roundedMinutes = ceil($minutes / $roundingInterval) * $roundingInterval;
+                $nextTime->setMinutes($roundedMinutes);
+                if ($roundedMinutes >= 60) {
+                    $nextTime->addHour()->setMinutes(0);
+                }
+                Log::debug('Rounded to 15-minute interval', [
+                    'original_minutes' => $minutes,
+                    'rounded_minutes' => $roundedMinutes,
+                    'nextTime_rounded' => $nextTime->toDateTimeString()
+                ]);
+            }
+        } else {
+            // Если нет пересечений, добавляем slotStep
+            $nextTime->addMinutes($slotStep);
+            Log::debug('Added slotStep', ['new_next_time' => $nextTime->toDateTimeString(), 'slotStep' => $slotStep]);
+        }
 
-        Log::debug('Aligned next time', [
-            'minutesSinceStart' => $minutesSinceStart,
-            'alignedMinutes' => $alignedMinutes,
-            'nextTime_final' => $nextTime->toDateTimeString()
-        ]);
-
-        // Проверка выхода за пределы рабочего дня
-        if ($nextTime->gt($scheduleEnd->subMinutes($service->duration))) {
+        // Проверка выхода за пределы расписания
+        if ($nextTime->gt($scheduleEnd)) {
             $nextTime = $scheduleEnd->copy();
-            Log::debug('Next time adjusted to schedule end', ['next_time' => $nextTime->toDateTimeString()]);
+            Log::debug('Adjusted to schedule end', ['next_time' => $nextTime->toDateTimeString()]);
         }
 
         return $nextTime;
@@ -267,7 +299,7 @@ class ClientController extends Controller
         Log::info('ClientController::bookings started');
         $client = Auth::guard('client')->user();
         $bookings = Booking::where('client_id', $client->id)
-            ->with(['project', 'service'])
+            ->with(['project', 'service', 'dailySchedule'])
             ->orderBy('start_time', 'desc')
             ->paginate(10);
         Log::info('ClientController::bookings completed', ['bookings_count' => $bookings->count()]);
