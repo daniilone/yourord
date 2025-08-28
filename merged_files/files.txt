@@ -1,0 +1,7 @@
+https://raw.githubusercontent.com/daniilone/yourord/refs/heads/main/merged_files/routes.txt
+https://raw.githubusercontent.com/daniilone/yourord/refs/heads/main/merged_files/migrations.txt
+https://raw.githubusercontent.com/daniilone/yourord/refs/heads/main/merged_files/models.txt
+https://raw.githubusercontent.com/daniilone/yourord/refs/heads/main/merged_files/controllers.txt
+https://raw.githubusercontent.com/daniilone/yourord/refs/heads/main/merged_files/views.txt
+https://raw.githubusercontent.com/daniilone/yourord/refs/heads/main/merged_files/bootstrap.txt
+https://raw.githubusercontent.com/daniilone/yourord/refs/heads/main/merged_files/config.txt
