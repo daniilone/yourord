@@ -26,7 +26,7 @@ class ClientController extends Controller
             ->with(['project', 'service', 'dailySchedule'])
             ->orderBy('start_time', 'desc');
 
-        if ($request->has('status') && in_array($request->status, ['pending', 'confirmed', 'canceled'])) {
+        if ($request->has('status') && in_array($request->status, ['pending', 'confirmed', 'cancelled'])) {
             $query->where('status', $request->status);
         }
         if ($request->has('date')) {
@@ -42,10 +42,7 @@ class ClientController extends Controller
 
     public function projects(Request $request)
     {
-        Log::info('ClientController::projects started', ['params' => $request->all()]);
-        $projects = Project::with(['master'])
-            ->paginate(10);
-        Log::info('ClientController::projects completed', ['projects_count' => $projects->count()]);
+        $projects = auth('client')->user()->projects()->with('master')->paginate(10);
         return view('client.projects', compact('projects'));
     }
 
@@ -293,7 +290,7 @@ class ClientController extends Controller
             ->with(['project', 'service', 'dailySchedule'])
             ->orderBy('start_time', 'desc');
 
-        if ($request->has('status') && in_array($request->status, ['pending', 'confirmed', 'canceled'])) {
+        if ($request->has('status') && in_array($request->status, ['pending', 'confirmed', 'cancelled'])) {
             $query->where('status', $request->status);
         }
         if ($request->has('date')) {
@@ -329,8 +326,8 @@ class ClientController extends Controller
         if ($booking->client_id !== Auth::guard('client')->id()) {
             return response()->json(['error' => 'Недостаточно прав для отмены'], 403);
         }
-        $booking->update(['status' => 'canceled']);
-        Log::info('Booking canceled', ['booking_id' => $booking->id]);
+        $booking->update(['status' => 'cancelled']);
+        Log::info('Booking cancelled', ['booking_id' => $booking->id]);
         return response()->json(['message' => 'Запись отменена']);
     }
 }

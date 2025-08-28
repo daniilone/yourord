@@ -2,15 +2,20 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Str;
 
 class Project extends Model
 {
+    use HasFactory;
+
     protected $fillable = ['master_id', 'name', 'description', 'slug'];
 
     protected static function boot()
     {
         parent::boot();
+
         static::creating(function ($project) {
             if (empty($project->slug)) {
                 $project->slug = Str::slug($project->name);
@@ -22,6 +27,12 @@ class Project extends Model
             }
         });
     }
+
+    public function getRouteKeyName()
+    {
+        return 'slug';
+    }
+
     public function master()
     {
         return $this->belongsTo(Master::class);
@@ -51,9 +62,9 @@ class Project extends Model
     {
         return $this->hasMany(Booking::class);
     }
+
     public function clients()
     {
         return $this->belongsToMany(Client::class, 'client_projects', 'project_id', 'client_id');
     }
-
 }
