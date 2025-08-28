@@ -12,14 +12,14 @@
 // Конфигурация
 $config = [
     'directories' => [
-        'app/Http/Controllers', // Папка с контроллерами
-        'app/Models',          // Папка с моделями
+        'controllers' => 'app/Http/Controllers', // Папка с контроллерами
+        'models' => 'app/Models',          // Папка с моделями
 //        'app/Http/Controllers/Auth',
-        'database/migrations',  // Папка с миграциями в Laravel/Models',
-        'resources/views',      // Папка с Blade-шаблонами
-        'routes',              // Папка с маршрутами
-        'bootstrap',
-        'config'
+        'migrations'=> 'database/migrations',  // Папка с миграциями в Laravel/Models',
+        'views' => 'resources/views',      // Папка с Blade-шаблонами
+        'routes' => 'routes',              // Папка с маршрутами
+        'bootstrap' => 'bootstrap',
+        'config' => 'config'
     ],
     'extensions' => ['php', 'blade.php'], // Разрешённые расширения файлов
     'exclude_dirs' => ['vendor', 'node_modules', 'storage'], // Папки, которые нужно исключить
@@ -29,18 +29,21 @@ $config = [
 
 // Функция для рекурсивного обхода директорий
 function mergeFiles($config) {
-    $outputContent = '';
+
     $fileCount = 0;
     $errors = [];
 
-    // Открываем выходной файл для записи
-    $outputHandle = fopen($config['output_file'], 'w');
-    if (!$outputHandle) {
-        echo "Ошибка: Не удалось создать выходной файл {$config['output_file']}\n";
-        return;
-    }
 
-    foreach ($config['directories'] as $dir) {
+    foreach ($config['directories'] as $fileName => $dir) {
+        $outputContent = '';
+        $path = "merged_files/{$fileName}.txt";
+        // Открываем выходной файл для записи
+        $outputHandle = fopen($path, 'w');
+        if (!$outputHandle) {
+            echo "Ошибка: Не удалось создать выходной файл {$path}\n";
+            return;
+        }
+
         $fullDir = $config['base_path'] . DIRECTORY_SEPARATOR . $dir;
         if (!is_dir($fullDir)) {
             $errors[] = "Папка {$dir} не существует";
@@ -88,15 +91,16 @@ function mergeFiles($config) {
 
             $fileCount++;
         }
+
+        // Записываем содержимое в выходной файл
+        fwrite($outputHandle, $outputContent);
+        fclose($outputHandle);
     }
 
-    // Записываем содержимое в выходной файл
-    fwrite($outputHandle, $outputContent);
-    fclose($outputHandle);
 
     // Выводим статистику
     echo "Обработано файлов: {$fileCount}\n";
-    echo "Результат сохранён в: {$config['output_file']}\n";
+    echo "Результат сохранён в: /merged_files/\n";
     if (!empty($errors)) {
         echo "Ошибки:\n";
         foreach ($errors as $error) {

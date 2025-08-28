@@ -1,0 +1,1285 @@
+
+
+========== File: app/Http/Controllers/AdminController.php ==========
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\User;
+use App\Models\Master;
+use App\Models\Client;
+use App\Models\Project;
+use App\Models\Tariff;
+use App\Models\Payment;
+use App\Models\DailyScheduleTemplate;
+
+class AdminController extends Controller
+{
+    public function __construct()
+    {
+        $this->middleware('auth:web');
+    }
+
+    public function dashboard()
+    {
+        $users = User::count();
+        $masters = Master::count();
+        $clients = Client::count();
+        $projects = Project::count();
+        return view('admin.dashboard', compact('users', 'masters', 'clients', 'projects'));
+    }
+
+    public function users()
+    {
+        $users = User::all();
+        return view('admin.users', compact('users'));
+    }
+
+    public function masters()
+    {
+        $masters = Master::with('projects')->get();
+        return view('admin.masters', compact('masters'));
+    }
+
+    public function clients()
+    {
+        $clients = Client::with('bookings')->get();
+        return view('admin.clients', compact('clients'));
+    }
+
+    public function projects()
+    {
+        $projects = Project::with(['master', 'categories', 'dailySchedules', 'dailyScheduleTemplates'])->get();
+        return view('admin.projects', compact('projects'));
+    }
+
+    public function tariffs()
+    {
+        $tariffs = Tariff::with('masterTariffs')->get();
+        return view('admin.tariffs', compact('tariffs'));
+    }
+
+    public function payments()
+    {
+        $payments = Payment::with(['master', 'tariff'])->get();
+        return view('admin.payments', compact('payments'));
+    }
+}
+
+
+========== File: app/Http/Controllers/Auth/AdminAuthController.php ==========
+<?php
+
+namespace App\Http\Controllers\Auth;
+
+use App\Http\Controllers\Controller;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+
+class AdminAuthController extends Controller
+{
+    public function showLoginForm()
+    {
+        return view('admin.auth.login');
+    }
+
+    public function login(Request $request)
+    {
+        $request->validate([
+            'email' => 'required|email',
+            'password' => 'required',
+        ]);
+
+        if (Auth::guard('web')->attempt(['email' => $request->email, 'password' => $request->password])) {
+            return redirect()->route('admin.dashboard');
+        }
+
+        return redirect()->back()->withErrors(['email' => 'Неверные учетные данные']);
+    }
+
+    public function logout(Request $request)
+    {
+        Auth::guard('web')->logout();
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
+        return redirect('/admin/login');
+    }
+}
+
+
+========== File: app/Http/Controllers/Auth/ClientAuthController.php ==========
+<?php
+
+namespace App\Http\Controllers\Auth;
+
+use App\Http\Controllers\Controller;
+use App\Models\OtpCode;
+use App\Models\Client;
+use App\Models\ClientAuthProvider;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Str;
+use Carbon\Carbon;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
+
+class ClientAuthController extends Controller
+{
+    public function showLoginForm()
+    {
+        return view('client.auth.login');
+    }
+
+    public function sendCode(Request $request)
+    {
+        $request->validate([
+            'email' => 'required|email',
+        ]);
+
+        OtpCode::where('identifier', $request->email)->where('type', 'email')->delete();
+
+        $code = '';
+        for ($i = 0; $i < 6; $i++) {
+            $code .= (string)rand(0, 9);
+        }
+        $code = "123456";
+        OtpCode::create([
+            'identifier' => $request->email,
+            'type' => 'email',
+            'code' => Hash::make($code),
+            'expires_at' => Carbon::now()->addMinutes(5),
+        ]);
+
+        Mail::raw("Ваш код подтверждения: $code", function ($message) use ($request) {
+            $message->to($request->email)->subject('Код подтверждения YourOrd');
+        });
+
+        return redirect()->route('client.auth.verify-form')->with([
+            'message' => 'Код отправлен',
+            'email' => $request->email,
+        ]);
+    }
+
+    public function showVerifyForm()
+    {
+        return view('client.auth.verify-code');
+    }
+
+    public function verifyCode(Request $request)
+    {
+        $request->validate([
+            'email' => 'required|email',
+            'code' => 'required|string',
+        ]);
+
+        $otp = OtpCode::where('identifier', $request->email)
+            ->where('type', 'email')
+            ->where('used', false)
+            ->where('expires_at', '>', Carbon::now())
+            ->first();
+
+        if ($otp && Hash::check($request->code, $otp->code)) {
+            $otp->update(['used' => true]);
+
+            $client = Client::where('email', $request->email)->first();
+            if (!$client) {
+                $client = Client::create(['email' => $request->email]);
+            }
+
+            ClientAuthProvider::updateOrCreate(
+                [
+                    'client_id' => $client->id,
+                    'provider' => 'email',
+                    'provider_id' => $request->email,
+                ]
+            );
+
+            Auth::guard('client')->login($client);
+            return redirect()->route('client.dashboard');
+        }
+
+        return redirect()->back()->withErrors(['code' => 'Неверный или истекший код']);
+    }
+
+    public function logout(Request $request)
+    {
+        Auth::guard('client')->logout();
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
+        return redirect('/client/login');
+    }
+}
+
+
+========== File: app/Http/Controllers/Auth/MasterAuthController.php ==========
+<?php
+
+namespace App\Http\Controllers\Auth;
+
+use App\Http\Controllers\Controller;
+use App\Models\OtpCode;
+use App\Models\Master;
+use App\Models\MasterAuthProvider;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Str;
+use Carbon\Carbon;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
+
+class MasterAuthController extends Controller
+{
+    public function showLoginForm()
+    {
+        return view('master.auth.login');
+    }
+
+    public function sendCode(Request $request)
+    {
+        $request->validate([
+            'email' => 'required|email',
+        ]);
+
+        OtpCode::where('identifier', $request->email)->where('type', 'email')->delete();
+
+        $code = '';
+        for ($i = 0; $i < 6; $i++) {
+            $code .= (string)rand(0, 9);
+        }
+        $code = "123456";
+        OtpCode::create([
+            'identifier' => $request->email,
+            'type' => 'email',
+            'code' => Hash::make($code),
+            'expires_at' => Carbon::now()->addMinutes(5),
+        ]);
+
+        Mail::raw("Ваш код подтверждения: $code", function ($message) use ($request) {
+            $message->to($request->email)->subject('Код подтверждения YourOrd');
+        });
+
+        return redirect()->route('master.auth.verify-form')->with([
+            'message' => 'Код отправлен',
+            'email' => $request->email,
+        ]);
+    }
+
+    public function showVerifyForm()
+    {
+        return view('master.auth.verify-code');
+    }
+
+    public function verifyCode(Request $request)
+    {
+        $request->validate([
+            'email' => 'required|email',
+            'code' => 'required|string',
+        ]);
+
+        $otp = OtpCode::where('identifier', $request->email)
+            ->where('type', 'email')
+            ->where('used', false)
+            ->where('expires_at', '>', Carbon::now())
+            ->first();
+
+        if ($otp && Hash::check($request->code, $otp->code)) {
+            $otp->update(['used' => true]);
+
+            $master = Master::where('email', $request->email)->first();
+            if (!$master) {
+                $master = Master::create(['email' => $request->email]);
+            }
+
+            MasterAuthProvider::updateOrCreate(
+                [
+                    'master_id' => $master->id,
+                    'provider' => 'email',
+                    'provider_id' => $request->email,
+                ]
+            );
+
+            Auth::guard('master')->login($master);
+            return redirect()->route('master.dashboard');
+        }
+
+        return redirect()->back()->withErrors(['code' => 'Неверный или истекший код']);
+    }
+
+    public function logout(Request $request)
+    {
+        Auth::guard('master')->logout();
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
+        return redirect('/master/login');
+    }
+}
+
+
+========== File: app/Http/Controllers/BookingController.php ==========
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\Booking;
+use App\Models\Project;
+use App\Models\Service;
+use App\Models\Schedule;
+use App\Models\Blacklist;
+use Illuminate\Http\Request;
+use Carbon\Carbon;
+use Illuminate\Support\Facades\Auth;
+
+class BookingController extends Controller
+{
+    public function clientDashboard()
+    {
+        return view('client.dashboard');
+    }
+
+    public function clientBookings()
+    {
+        $bookings = Booking::where('client_id', Auth::guard('client')->id())
+            ->with(['service', 'schedule', 'project'])
+            ->get();
+        return view('client.bookings', compact('bookings'));
+    }
+
+    public function create(Request $request)
+    {
+        $request->validate([
+            'project_id' => 'required|exists:projects,id',
+            'service_id' => 'required|exists:services,id',
+            'schedule_id' => 'required|exists:schedules,id',
+        ]);
+
+        $service = Service::findOrFail($request->service_id);
+        $schedule = Schedule::findOrFail($request->schedule_id);
+
+        // Проверка длительности
+        $startTime = Carbon::parse($schedule->start_time);
+        $endTime = $startTime->copy()->addMinutes($service->duration);
+        if ($endTime > $schedule->end_time) {
+            return redirect()->back()->withErrors(['time' => 'Услуга не помещается в слот']);
+        }
+
+        // Проверка перерывов
+        $nextBreak = Schedule::where('project_id', $request->project_id)
+            ->where('type', 'break')
+            ->where('start_time', '>=', $startTime)
+            ->orderBy('start_time')
+            ->first();
+        if ($nextBreak && $nextBreak->floating_break_buffer) {
+            $bufferTime = $startTime->copy()->addMinutes($nextBreak->floating_break_buffer);
+            if ($endTime > $bufferTime) {
+                return redirect()->back()->withErrors(['time' => 'Услуга не помещается до перерыва']);
+            }
+        }
+
+        // Проверка конфликтов
+        if (Booking::where('schedule_id', $request->schedule_id)->where('status', 'confirmed')->exists()) {
+            return redirect()->back()->withErrors(['time' => 'Время занято']);
+        }
+
+        // Проверка черного списка
+        $client = Auth::guard('client')->user();
+        if (Blacklist::where('master_id', $schedule->master_id)->where('client_email', $client->email)->exists()) {
+            return redirect()->back()->withErrors(['client_email' => 'Вы в черном списке']);
+        }
+
+        Booking::create([
+            'project_id' => $request->project_id,
+            'client_id' => $client->id,
+            'client_email' => $client->email,
+            'service_id' => $request->service_id,
+            'schedule_id' => $request->schedule_id,
+            'status' => 'pending',
+        ]);
+
+        return redirect()->route('client.bookings')->with('message', 'Запись создана');
+    }
+}
+
+
+========== File: app/Http/Controllers/ClientController.php ==========
+<?php
+namespace App\Http\Controllers;
+
+use App\Models\Project;
+use App\Models\Service;
+use App\Models\DailySchedule;
+use App\Models\Booking;
+use App\Models\WorkBreak;
+use Carbon\Carbon;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
+
+class ClientController extends Controller
+{
+    public function __construct()
+    {
+        $this->middleware('auth:client')->except(['projects', 'showProject']);
+    }
+
+    public function dashboard(Request $request)
+    {
+        Log::info('ClientController::dashboard started', ['params' => $request->all()]);
+        $client = Auth::guard('client')->user();
+        $query = Booking::where('client_id', $client->id)
+            ->with(['project', 'service', 'dailySchedule'])
+            ->orderBy('start_time', 'desc');
+
+        if ($request->has('status') && in_array($request->status, ['pending', 'confirmed', 'canceled'])) {
+            $query->where('status', $request->status);
+        }
+        if ($request->has('date')) {
+            $query->whereHas('dailySchedule', function ($q) use ($request) {
+                $q->where('date', $request->date);
+            });
+        }
+
+        $bookings = $query->paginate(10);
+        Log::info('ClientController::dashboard completed', ['bookings_count' => $bookings->count()]);
+        return view('client.dashboard', compact('client', 'bookings'));
+    }
+
+    public function projects(Request $request)
+    {
+        Log::info('ClientController::projects started', ['params' => $request->all()]);
+        $projects = Project::with(['master'])
+            ->paginate(10);
+        Log::info('ClientController::projects completed', ['projects_count' => $projects->count()]);
+        return view('client.projects', compact('projects'));
+    }
+
+    public function showProject($slug, Request $request)
+    {
+        Log::info('ClientController::showProject started', ['slug' => $slug, 'params' => $request->all()]);
+        $project = Project::where('slug', $slug)
+            ->with(['services' => function ($query) {
+                $query->select('id', 'project_id', 'name', 'duration', 'price', 'category_id');
+            }, 'categories'])
+            ->firstOrFail();
+        $categories = $project->categories;
+        $services = $project->services;
+        $date = $request->input('date', now()->format('Y-m-d'));
+
+        $slotsByService = [];
+        foreach ($services as $service) {
+            $slotsByService[$service->id] = $this->getAvailableSlots($project, $service, $date);
+        }
+
+        Log::info('ClientController::showProject completed', ['slots_count' => count($slotsByService)]);
+        return view('client.project', compact('project', 'categories', 'services', 'slotsByService', 'date'));
+    }
+
+    protected function getAvailableSlots(Project $project, Service $service, $date)
+    {
+        Log::info('getAvailableSlots started', [
+            'project_id' => $project->id,
+            'service_id' => $service->id,
+            'date' => $date,
+            'service_duration' => $service->duration
+        ]);
+
+        $minDuration = Service::where('project_id', $project->id)
+            ->min('duration') ?? 30;
+        $slotStep = $minDuration;
+
+        $dailySchedule = DailySchedule::where('project_id', $project->id)
+            ->where('date', $date)
+            ->where('is_working_day', true)
+            ->select('id', 'project_id', 'start_time', 'end_time')
+            ->first();
+
+        if (!$dailySchedule) {
+            Log::warning('No daily schedule found', ['project_id' => $project->id, 'date' => $date]);
+            return [];
+        }
+
+        $bookings = Booking::where('project_id', $project->id)
+            ->where('daily_schedule_id', $dailySchedule->id)
+            ->select('id', 'start_time', 'service_id')
+            ->with(['service' => function ($query) {
+                $query->select('id', 'duration');
+            }])
+            ->get();
+
+        $breaks = WorkBreak::where('daily_schedule_id', $dailySchedule->id)
+            ->select('id', 'start_time', 'end_time')
+            ->get();
+
+        $slots = [];
+        $currentTime = Carbon::parse($date . ' ' . $dailySchedule->start_time);
+        $endTime = Carbon::parse($date . ' ' . $dailySchedule->end_time);
+        $duration = $service->duration;
+        $iterationCount = 0;
+
+        Log::debug('getAvailableSlots params', [
+            'currentTime' => $currentTime->toDateTimeString(),
+            'endTime' => $endTime->toDateTimeString(),
+            'slotStep' => $slotStep,
+            'service_duration' => $duration,
+            'min_duration' => $minDuration,
+            'bookings_count' => $bookings->count(),
+            'breaks_count' => $breaks->count()
+        ]);
+
+        while ($currentTime->lte($endTime->copy()->subMinutes($duration)) && $iterationCount < 1000) {
+            $slotEnd = $currentTime->copy()->addMinutes($duration);
+            $isFree = true;
+
+            foreach ($bookings as $booking) {
+                $bookingStart = Carbon::parse($booking->start_time);
+                $bookingEnd = $bookingStart->copy()->addMinutes($booking->service->duration);
+                if ($currentTime->lt($bookingEnd) && $slotEnd->gt($bookingStart)) {
+                    $isFree = false;
+                    Log::debug('Slot overlaps with booking', [
+                        'slot_start' => $currentTime->toDateTimeString(),
+                        'slot_end' => $slotEnd->toDateTimeString(),
+                        'booking_start' => $bookingStart->toDateTimeString(),
+                        'booking_end' => $bookingEnd->toDateTimeString()
+                    ]);
+                    break;
+                }
+            }
+
+            foreach ($breaks as $break) {
+                $breakStart = Carbon::parse($date . ' ' . $break->start_time);
+                $breakEnd = Carbon::parse($date . ' ' . $break->end_time);
+                if ($currentTime->lt($breakEnd) && $slotEnd->gt($breakStart)) {
+                    $isFree = false;
+                    Log::debug('Slot overlaps with break', [
+                        'slot_start' => $currentTime->toDateTimeString(),
+                        'slot_end' => $slotEnd->toDateTimeString(),
+                        'break_start' => $breakStart->toDateTimeString(),
+                        'break_end' => $breakEnd->toDateTimeString()
+                    ]);
+                    break;
+                }
+            }
+
+            if ($isFree && $currentTime->gte(Carbon::parse($date . ' ' . $dailySchedule->start_time)) && $slotEnd->lte($endTime)) {
+                $slots[] = [
+                    'start' => $currentTime->format('H:i'),
+                    'end' => $slotEnd->format('H:i'),
+                ];
+                Log::debug('Slot added', [
+                    'start' => $currentTime->format('H:i'),
+                    'end' => $slotEnd->format('H:i')
+                ]);
+            }
+
+            $currentTime = $this->getNextSlotTime($currentTime, $slotStep, $bookings, $breaks, $dailySchedule, $service, $date);
+            $iterationCount++;
+            Log::debug('Next slot time', ['currentTime' => $currentTime->toDateTimeString()]);
+        }
+
+        if ($iterationCount >= 1000) {
+            Log::error('Possible infinite loop in getAvailableSlots', ['project_id' => $project->id, 'service_id' => $service->id]);
+        }
+
+        Log::info('getAvailableSlots completed', ['slots_count' => count($slots)]);
+        return $slots;
+    }
+
+    protected function getNextSlotTime(Carbon $currentTime, int $slotStep, $bookings, $breaks, DailySchedule $dailySchedule, Service $service, $date): Carbon
+    {
+        $scheduleStart = Carbon::parse($date . ' ' . $dailySchedule->start_time);
+        $scheduleEnd = Carbon::parse($date . ' ' . $dailySchedule->end_time);
+        $nextTime = $currentTime->copy();
+        $roundingInterval = 15;
+
+        Log::debug('getNextSlotTime started', [
+            'currentTime' => $currentTime->toDateTimeString(),
+            'slotStep' => $slotStep
+        ]);
+
+        $slotEnd = $nextTime->copy()->addMinutes($service->duration);
+        $latestEnd = $nextTime;
+        $lastBookingDuration = null;
+
+        foreach ($bookings as $booking) {
+            $bookingStart = Carbon::parse($booking->start_time);
+            $bookingEnd = $bookingStart->copy()->addMinutes($booking->service->duration);
+            if ($currentTime->lt($bookingEnd) && $slotEnd->gt($bookingStart)) {
+                if ($bookingEnd->gt($latestEnd)) {
+                    $latestEnd = $bookingEnd->copy();
+                    $lastBookingDuration = $booking->service->duration;
+                }
+                Log::debug('Overlap with booking', [
+                    'booking_start' => $bookingStart->toDateTimeString(),
+                    'booking_end' => $bookingEnd->toDateTimeString(),
+                    'current_slot_start' => $currentTime->toDateTimeString(),
+                    'current_slot_end' => $slotEnd->toDateTimeString()
+                ]);
+            }
+        }
+
+        foreach ($breaks as $break) {
+            $breakStart = Carbon::parse($date . ' ' . $break->start_time);
+            $breakEnd = Carbon::parse($date . ' ' . $break->end_time);
+            if ($currentTime->lt($breakEnd) && $slotEnd->gt($breakStart)) {
+                if ($breakEnd->gt($latestEnd)) {
+                    $latestEnd = $breakEnd->copy();
+                    $lastBookingDuration = null;
+                }
+                Log::debug('Overlap with break', [
+                    'break_start' => $breakStart->toDateTimeString(),
+                    'break_end' => $breakEnd->toDateTimeString(),
+                    'current_slot_start' => $currentTime->toDateTimeString(),
+                    'current_slot_end' => $slotEnd->toDateTimeString()
+                ]);
+            }
+        }
+
+        if ($latestEnd->gt($nextTime)) {
+            $nextTime = $latestEnd->copy();
+            Log::debug('Adjusted to latest end', ['new_next_time' => $nextTime->toDateTimeString()]);
+            if ($lastBookingDuration && ($lastBookingDuration % 15 !== 0)) {
+                $minutes = $nextTime->minute;
+                $roundedMinutes = ceil($minutes / $roundingInterval) * $roundingInterval;
+                $nextTime->setMinutes($roundedMinutes);
+                if ($roundedMinutes >= 60) {
+                    $nextTime->addHour()->setMinutes(0);
+                }
+                Log::debug('Rounded to 15-minute interval', [
+                    'original_minutes' => $minutes,
+                    'rounded_minutes' => $roundedMinutes,
+                    'nextTime_rounded' => $nextTime->toDateTimeString()
+                ]);
+            }
+        } else {
+            $nextTime->addMinutes($slotStep);
+            Log::debug('Added slotStep', ['new_next_time' => $nextTime->toDateTimeString(), 'slotStep' => $slotStep]);
+        }
+
+        return $nextTime;
+    }
+
+    public function createBooking(Request $request, $slug)
+    {
+        Log::info('createBooking started', ['slug' => $slug, 'input' => $request->all()]);
+
+        $request->validate([
+            'date' => 'required|date',
+            'slot_start' => 'required',
+            'service_id' => 'required|exists:services,id',
+        ]);
+
+        $project = Project::where('slug', $slug)->firstOrFail();
+        $service = Service::findOrFail($request->service_id);
+        $dailySchedule = DailySchedule::where('project_id', $project->id)
+            ->where('date', $request->date)
+            ->firstOrFail();
+
+        $startTime = Carbon::parse($request->date . ' ' . $request->slot_start);
+
+        $booking = Booking::create([
+            'project_id' => $project->id,
+            'service_id' => $service->id,
+            'client_id' => Auth::guard('client')->id(),
+            'daily_schedule_id' => $dailySchedule->id,
+            'start_time' => $startTime,
+            'status' => 'pending',
+        ]);
+
+        Log::info('Booking created', ['booking_id' => $booking->id]);
+        return redirect()->route('client.project', $slug)->with('message', 'Запись создана');
+    }
+
+    public function bookings(Request $request)
+    {
+        Log::info('ClientController::bookings started', ['params' => $request->all()]);
+        $client = Auth::guard('client')->user();
+        $query = Booking::where('client_id', $client->id)
+            ->with(['project', 'service', 'dailySchedule'])
+            ->orderBy('start_time', 'desc');
+
+        if ($request->has('status') && in_array($request->status, ['pending', 'confirmed', 'canceled'])) {
+            $query->where('status', $request->status);
+        }
+        if ($request->has('date')) {
+            $query->whereHas('dailySchedule', function ($q) use ($request) {
+                $q->where('date', $request->date);
+            });
+        }
+
+        $bookings = $query->paginate(10);
+        Log::info('ClientController::bookings completed', ['bookings_count' => $bookings->count()]);
+        return view('client.bookings', compact('bookings'));
+    }
+
+    public function addProjectToFavorites(Request $request, $slug)
+    {
+        Log::info('addProjectToFavorites started', ['slug' => $slug]);
+        $project = Project::where('slug', $slug)->firstOrFail();
+        $client = Auth::guard('client')->user();
+        if ($client->projects()->where('project_id', $project->id)->exists()) {
+            $client->projects()->detach($project->id);
+            $message = 'Проект удалён из избранного';
+        } else {
+            $client->projects()->syncWithoutDetaching([$project->id]);
+            $message = 'Проект добавлен в избранное';
+        }
+        Log::info('Project favorite toggled', ['project_id' => $project->id, 'client_id' => $client->id]);
+        return redirect()->route('client.project', $slug)->with('message', $message);
+    }
+
+    public function cancelBooking(Request $request, Booking $booking)
+    {
+        Log::info('cancelBooking started', ['booking_id' => $booking->id]);
+        if ($booking->client_id !== Auth::guard('client')->id()) {
+            return response()->json(['error' => 'Недостаточно прав для отмены'], 403);
+        }
+        $booking->update(['status' => 'canceled']);
+        Log::info('Booking canceled', ['booking_id' => $booking->id]);
+        return response()->json(['message' => 'Запись отменена']);
+    }
+}
+
+
+========== File: app/Http/Controllers/Controller.php ==========
+<?php
+
+namespace App\Http\Controllers;
+
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
+use Illuminate\Foundation\Bus\DispatchesJobs;
+use Illuminate\Foundation\Validation\ValidatesRequests;
+use Illuminate\Routing\Controller as BaseController;
+
+class Controller extends BaseController
+{
+    use AuthorizesRequests, DispatchesJobs, ValidatesRequests;
+}
+
+
+========== File: app/Http/Controllers/MasterController.php ==========
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\Booking;
+use App\Models\Project;
+use App\Models\Service;
+use App\Models\Category;
+use App\Models\DailySchedule;
+use App\Models\WorkBreak;
+use App\Models\DailyScheduleTemplate;
+use App\Models\DailyScheduleTemplateBreak;
+use App\Models\Blacklist;
+use App\Models\Client;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Carbon\Carbon;
+
+class MasterController extends Controller
+{
+    public function __construct()
+    {
+        $this->middleware('auth:master');
+    }
+
+    public function dashboard()
+    {
+        $master = Auth::guard('master')->user();
+        $projects = Project::where('master_id', $master->id)->get();
+        $todayBookings = Booking::whereHas('project', function($query) use ($master) {
+            $query->where('master_id', $master->id);
+        })
+            ->whereDate('start_time', now()->toDateString())
+            ->count();
+        $upcomingBookings = Booking::whereHas('project', function($query) use ($master) {
+            $query->where('master_id', $master->id);
+        })
+            ->with(['project', 'service', 'client'])
+            ->where('start_time', '>=', now())
+            ->orderBy('start_time')
+            ->take(5)
+            ->get();
+        $servicesCount = Service::whereHas('category', function($query) use ($master) {
+            $query->whereHas('project', function($q) use ($master) {
+                $q->where('master_id', $master->id);
+            });
+        })
+            ->count();
+        $monthlyEarnings = Booking::whereHas('project', function($query) use ($master) {
+            $query->where('master_id', $master->id);
+        })
+            ->join('services', 'bookings.service_id', '=', 'services.id')
+            ->where('bookings.status', 'completed')
+            ->whereBetween('bookings.created_at', [now()->startOfMonth(), now()->endOfMonth()])
+            ->sum('services.price');
+
+        return view('master.dashboard', compact(
+            'master',
+            'projects',
+            'todayBookings',
+            'upcomingBookings',
+            'servicesCount',
+            'monthlyEarnings'
+        ));
+    }
+
+    public function bookings()
+    {
+        $master = Auth::guard('master')->user();
+        $bookings = Booking::whereHas('project', function ($query) use ($master) {
+            $query->where('master_id', $master->id);
+        })->with(['project', 'service', 'dailySchedule', 'client'])
+            ->orderBy('start_time', 'desc')
+            ->paginate(10); // Замените get() на paginate(10)
+        return view('master.bookings', compact('bookings'));
+    }
+
+    public function updateBooking(Request $request, Booking $booking)
+    {
+        $master = Auth::guard('master')->user();
+        if (!$master->projects->contains($booking->project_id)) {
+            return redirect()->back()->withErrors(['booking' => 'У вас нет доступа к этой записи']);
+        }
+
+        $request->validate([
+            'status' => 'required|in:pending,confirmed,cancelled',
+        ]);
+
+        $booking->update(['status' => $request->status]);
+        return redirect()->route('master.bookings')->with('message', 'Статус записи обновлен');
+    }
+
+    public function projects()
+    {
+        $master = Auth::guard('master')->user();
+        $projects = Project::where('master_id', $master->id)->get();
+        return view('master.projects', compact('projects'));
+    }
+
+    public function createProject(Request $request)
+    {
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'description' => 'nullable|string',
+        ]);
+
+        $master = Auth::guard('master')->user();
+        Project::create([
+            'master_id' => $master->id,
+            'name' => $request->name,
+            'description' => $request->description,
+        ]);
+
+        return redirect()->route('master.projects')->with('message', 'Проект создан');
+    }
+
+    public function updateProject(Request $request, Project $project)
+    {
+        $master = Auth::guard('master')->user();
+        if ($project->master_id !== $master->id) {
+            return redirect()->back()->withErrors(['project' => 'У вас нет доступа к этому проекту']);
+        }
+
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'description' => 'nullable|string',
+        ]);
+
+        $project->update([
+            'name' => $request->name,
+            'description' => $request->description,
+        ]);
+
+        return redirect()->route('master.projects')->with('message', 'Проект обновлен');
+    }
+
+    public function categories()
+    {
+        $master = Auth::guard('master')->user();
+        $categories = Category::whereHas('project', function ($query) use ($master) {
+            $query->where('master_id', $master->id);
+        })->get();
+        return view('master.categories', compact('categories'));
+    }
+
+    public function createCategory(Request $request)
+    {
+        $request->validate([
+            'project_id' => 'required|exists:projects,id',
+            'name' => 'required|string|max:255',
+        ]);
+
+        $master = Auth::guard('master')->user();
+        if (!Project::where('id', $request->project_id)->where('master_id', $master->id)->exists()) {
+            return redirect()->back()->withErrors(['project' => 'У вас нет доступа к этому проекту']);
+        }
+
+        Category::create([
+            'project_id' => $request->project_id,
+            'name' => $request->name,
+        ]);
+
+        return redirect()->route('master.categories')->with('message', 'Категория создана');
+    }
+
+    public function updateCategory(Request $request, Category $category)
+    {
+        $master = Auth::guard('master')->user();
+        if (!Project::where('id', $category->project_id)->where('master_id', $master->id)->exists()) {
+            return redirect()->back()->withErrors(['project' => 'У вас нет доступа к этому проекту']);
+        }
+
+        $request->validate([
+            'project_id' => 'required|exists:projects,id',
+            'name' => 'required|string|max:255',
+        ]);
+
+        if (!Project::where('id', $request->project_id)->where('master_id', $master->id)->exists()) {
+            return redirect()->back()->withErrors(['project' => 'У вас нет доступа к этому проекту']);
+        }
+
+        $category->update([
+            'project_id' => $request->project_id,
+            'name' => $request->name,
+        ]);
+
+        return redirect()->route('master.categories')->with('message', 'Категория обновлена');
+    }
+
+    public function deleteCategory(Category $category)
+    {
+        $master = Auth::guard('master')->user();
+        if (!Project::where('id', $category->project_id)->where('master_id', $master->id)->exists()) {
+            return redirect()->back()->withErrors(['project' => 'У вас нет доступа к этому проекту']);
+        }
+
+        if ($category->services()->exists()) {
+            return redirect()->back()->withErrors(['category' => 'Нельзя удалить категорию, так как она содержит услуги']);
+        }
+
+        $category->delete();
+        return redirect()->route('master.categories')->with('message', 'Категория удалена');
+    }
+
+    public function services()
+    {
+        $master = Auth::guard('master')->user();
+        $services = Service::whereHas('project', function ($query) use ($master) {
+            $query->where('master_id', $master->id);
+        })->with('category')->paginate(10);
+        return view('master.services', compact('services'));
+    }
+
+    public function createService(Request $request)
+    {
+        $request->validate([
+            'project_id' => 'required|exists:projects,id',
+            'category_id' => 'required|exists:categories,id',
+            'name' => 'required|string|max:255',
+            'duration' => 'required|integer|min:1',
+            'price' => 'required|numeric|min:0',
+        ]);
+
+        $master = Auth::guard('master')->user();
+        if (!Project::where('id', $request->project_id)->where('master_id', $master->id)->exists()) {
+            return redirect()->back()->withErrors(['project' => 'У вас нет доступа к этому проекту']);
+        }
+
+        if (!Category::where('id', $request->category_id)->where('project_id', $request->project_id)->exists()) {
+            return redirect()->back()->withErrors(['category' => 'Категория не принадлежит этому проекту']);
+        }
+
+        Service::create([
+            'project_id' => $request->project_id,
+            'category_id' => $request->category_id,
+            'name' => $request->name,
+            'duration' => $request->duration,
+            'price' => $request->price,
+        ]);
+
+        return redirect()->route('master.services')->with('message', 'Услуга создана');
+    }
+
+    public function updateService(Request $request, Service $service)
+    {
+        $request->validate([
+            'project_id' => 'required|exists:projects,id',
+            'category_id' => 'required|exists:categories,id',
+            'name' => 'required|string|max:255',
+            'duration' => 'required|integer|min:1',
+            'price' => 'required|numeric|min:0',
+        ]);
+
+        $master = Auth::guard('master')->user();
+        if (!Project::where('id', $request->project_id)->where('master_id', $master->id)->exists()) {
+            return redirect()->back()->withErrors(['project' => 'У вас нет доступа к этому проекту']);
+        }
+
+        if (!Category::where('id', $request->category_id)->where('project_id', $request->project_id)->exists()) {
+            return redirect()->back()->withErrors(['category' => 'Категория не принадлежит этому проекту']);
+        }
+
+        $service->update([
+            'project_id' => $request->project_id,
+            'category_id' => $request->category_id,
+            'name' => $request->name,
+            'duration' => $request->duration,
+            'price' => $request->price,
+        ]);
+
+        return redirect()->route('master.services')->with('message', 'Услуга обновлена');
+    }
+
+    public function deleteService(Service $service)
+    {
+        $master = Auth::guard('master')->user();
+        if (!Project::where('id', $service->project_id)->where('master_id', $master->id)->exists()) {
+            return redirect()->back()->withErrors(['project' => 'У вас нет доступа к этому проекту']);
+        }
+
+        if ($service->bookings()->exists()) {
+            return redirect()->back()->withErrors(['service' => 'Нельзя удалить услугу, так как она используется в бронированиях']);
+        }
+
+        $service->delete();
+        return redirect()->route('master.services')->with('message', 'Услуга удалена');
+    }
+
+    public function dailySchedules()
+    {
+        $master = Auth::guard('master')->user();
+        $schedules = DailySchedule::whereHas('project', function ($query) use ($master) {
+            $query->where('master_id', $master->id);
+        })->with('workBreaks')->get();
+        return view('master.daily_schedules', compact('schedules'));
+    }
+
+    public function createDailySchedule(Request $request)
+    {
+        $request->validate([
+            'project_id' => 'required|exists:projects,id',
+            'date' => 'required|date',
+            'is_working_day' => 'required|boolean',
+            'start_time' => 'nullable|required_if:is_working_day,1|date_format:H:i,H:i:s',
+            'end_time' => 'nullable|required_if:is_working_day,1|date_format:H:i,H:i:s|after:start_time',
+            'breaks' => 'nullable|array',
+            'breaks.*.start_time' => 'required_if:is_working_day,1|date_format:H:i,H:i:s',
+            'breaks.*.end_time' => 'required_if:is_working_day,1|date_format:H:i,H:i:s|after:breaks.*.start_time',
+        ]);
+
+        $master = Auth::guard('master')->user();
+        if (!Project::where('id', $request->project_id)->where('master_id', $master->id)->exists()) {
+            return redirect()->back()->withErrors(['project' => 'У вас нет доступа к этому проекту']);
+        }
+
+        $schedule = DailySchedule::create([
+            'project_id' => $request->project_id,
+            'date' => $request->date,
+            'is_working_day' => $request->is_working_day,
+            'start_time' => $request->is_working_day ? $request->start_time : null,
+            'end_time' => $request->is_working_day ? $request->end_time : null,
+        ]);
+
+        if ($request->is_working_day && $request->breaks) {
+            foreach ($request->breaks as $break) {
+                WorkBreak::create([
+                    'daily_schedule_id' => $schedule->id,
+                    'start_time' => $break['start_time'],
+                    'end_time' => $break['end_time'],
+                ]);
+            }
+        }
+
+        return redirect()->route('master.daily_schedules')->with('message', 'Расписание дня создано');
+    }
+
+    public function updateDailySchedule(Request $request, DailySchedule $schedule)
+    {
+        $request->validate([
+            'project_id' => 'required|exists:projects,id',
+            'date' => 'required|date',
+            'is_working_day' => 'required|boolean',
+            'start_time' => 'nullable|required_if:is_working_day,1|date_format:H:i,H:i:s',
+            'end_time' => 'nullable|required_if:is_working_day,1|date_format:H:i,H:i:s|after:start_time',
+            'breaks' => 'nullable|array',
+            'breaks.*.start_time' => 'required_if:is_working_day,1|date_format:H:i,H:i:s',
+            'breaks.*.end_time' => 'required_if:is_working_day,1|date_format:H:i,H:i:s|after:breaks.*.start_time',
+        ]);
+
+        $master = Auth::guard('master')->user();
+        if (!Project::where('id', $request->project_id)->where('master_id', $master->id)->exists()) {
+            return redirect()->back()->withErrors(['project' => 'У вас нет доступа к этому проекту']);
+        }
+
+        $schedule->update([
+            'project_id' => $request->project_id,
+            'date' => $request->date,
+            'is_working_day' => $request->is_working_day,
+            'start_time' => $request->is_working_day ? $request->start_time : null,
+            'end_time' => $request->is_working_day ? $request->end_time : null,
+        ]);
+
+        $schedule->workBreaks()->delete();
+
+        if ($request->is_working_day && $request->breaks) {
+            foreach ($request->breaks as $break) {
+                WorkBreak::create([
+                    'daily_schedule_id' => $schedule->id,
+                    'start_time' => $break['start_time'],
+                    'end_time' => $break['end_time'],
+                ]);
+            }
+        }
+
+        return redirect()->route('master.daily_schedules')->with('message', 'Расписание дня обновлено');
+    }
+
+    public function dailyScheduleTemplates()
+    {
+        $master = Auth::guard('master')->user();
+        $templates = DailyScheduleTemplate::whereHas('project', function ($query) use ($master) {
+            $query->where('master_id', $master->id);
+        })->with('breaks')->get();
+        return view('master.daily_schedule_templates', compact('templates'));
+    }
+
+    public function createDailyScheduleTemplate(Request $request)
+    {
+        $request->validate([
+            'project_id' => 'required|exists:projects,id',
+            'name' => 'required|string|max:255',
+            'is_working_day' => 'required|boolean',
+            'start_time' => 'nullable|required_if:is_working_day,1|date_format:H:i,H:i:s',
+            'end_time' => 'nullable|required_if:is_working_day,1|date_format:H:i,H:i:s|after:start_time',
+            'breaks' => 'nullable|array',
+            'breaks.*.start_time' => 'required_if:is_working_day,1|date_format:H:i,H:i:s',
+            'breaks.*.end_time' => 'required_if:is_working_day,1|date_format:H:i,H:i:s|after:breaks.*.start_time',
+        ]);
+
+        $master = Auth::guard('master')->user();
+        if (!Project::where('id', $request->project_id)->where('master_id', $master->id)->exists()) {
+            return redirect()->back()->withErrors(['project' => 'У вас нет доступа к этому проекту']);
+        }
+
+        $template = DailyScheduleTemplate::create([
+            'project_id' => $request->project_id,
+            'name' => $request->name,
+            'is_working_day' => $request->is_working_day,
+            'start_time' => $request->is_working_day ? $request->start_time : null,
+            'end_time' => $request->is_working_day ? $request->end_time : null,
+        ]);
+
+        if ($request->is_working_day && $request->breaks) {
+            foreach ($request->breaks as $break) {
+                DailyScheduleTemplateBreak::create([
+                    'daily_schedule_template_id' => $template->id,
+                    'start_time' => $break['start_time'],
+                    'end_time' => $break['end_time'],
+                ]);
+            }
+        }
+
+        return redirect()->route('master.daily_schedule_templates')->with('message', 'Шаблон расписания создан');
+    }
+
+    public function applyDailyScheduleTemplate(Request $request)
+    {
+        $request->validate([
+            'template_id' => 'required|exists:daily_schedule_templates,id',
+            'date' => 'required|date',
+        ]);
+
+        $master = Auth::guard('master')->user();
+        $template = DailyScheduleTemplate::with('breaks')->findOrFail($request->template_id);
+        if (!Project::where('id', $template->project_id)->where('master_id', $master->id)->exists()) {
+            return redirect()->back()->withErrors(['project' => 'У вас нет доступа к этому проекту']);
+        }
+
+        $schedule = DailySchedule::create([
+            'project_id' => $template->project_id,
+            'date' => $request->date,
+            'is_working_day' => $template->is_working_day,
+            'start_time' => $template->is_working_day ? $template->start_time : null,
+            'end_time' => $template->is_working_day ? $template->end_time : null,
+        ]);
+
+        if ($template->is_working_day) {
+            foreach ($template->breaks as $break) {
+                WorkBreak::create([
+                    'daily_schedule_id' => $schedule->id,
+                    'start_time' => $break->start_time,
+                    'end_time' => $break->end_time,
+                ]);
+            }
+        }
+
+        return redirect()->route('master.daily_schedules')->with('message', 'Шаблон расписания применен');
+    }
+
+    public function blacklist()
+    {
+        $master = Auth::guard('master')->user();
+        $blacklist = Blacklist::where('master_id', $master->id)->with('client')->get();
+        return view('master.blacklist', compact('blacklist'));
+    }
+
+    public function addToBlacklist(Request $request)
+    {
+        $request->validate([
+            'client_email' => 'required|email',
+            'reason' => 'nullable|string',
+        ]);
+
+        $master = Auth::guard('master')->user();
+        $client = Client::where('email', $request->client_email)->first();
+
+        Blacklist::create([
+            'master_id' => $master->id,
+            'client_id' => $client ? $client->id : null,
+            'client_email' => $request->client_email,
+            'reason' => $request->reason,
+        ]);
+
+        return redirect()->route('master.blacklist')->with('message', 'Клиент добавлен в черный список');
+    }
+}
+
+
+========== File: app/Http/Controllers/ScheduleController.php ==========
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\Schedule;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+
+class ScheduleController extends Controller
+{
+    public function index()
+    {
+        $schedules = Schedule::where('master_id', Auth::guard('master')->id())->with('project')->get();
+        return view('master.schedules', compact('schedules'));
+    }
+
+    public function store(Request $request)
+    {
+        $request->validate([
+            'project_id' => 'required|exists:projects,id',
+            'start_time' => 'required|date',
+            'end_time' => 'required|date|after:start_time',
+            'type' => 'required|in:work,break,day_off',
+            'floating_break_buffer' => 'nullable|integer|min:0',
+        ]);
+
+        Schedule::create([
+            'project_id' => $request->project_id,
+            'master_id' => Auth::guard('master')->id(),
+            'start_time' => $request->start_time,
+            'end_time' => $request->end_time,
+            'type' => $request->type,
+            'floating_break_buffer' => $request->floating_break_buffer,
+        ]);
+
+        return redirect()->route('master.schedules')->with('message', 'Слот добавлен');
+    }
+}
