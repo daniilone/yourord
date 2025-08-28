@@ -18,55 +18,56 @@ class ClientController extends Controller
         $this->middleware('auth:client')->except(['projects', 'showProject']);
     }
 
-    public function dashboard()
+    public function dashboard(Request $request)
     {
-        Log::info('ClientController::dashboard started');
+        Log::info('ClientController::dashboard started', ['params' => $request->all()]);
         $client = Auth::guard('client')->user();
-        $bookings = Booking::where('client_id', $client->id)
+        $query = Booking::where('client_id', $client->id)
             ->with(['project', 'service', 'dailySchedule'])
-            ->orderBy('start_time', 'desc')
-            ->paginate(10);
+            ->orderBy('start_time', 'desc');
+
+        if ($request->has('status') && in_array($request->status, ['pending', 'confirmed', 'canceled'])) {
+            $query->where('status', $request->status);
+        }
+        if ($request->has('date')) {
+            $query->whereHas('dailySchedule', function ($q) use ($request) {
+                $q->where('date', $request->date);
+            });
+        }
+
+        $bookings = $query->paginate(10);
         Log::info('ClientController::dashboard completed', ['bookings_count' => $bookings->count()]);
         return view('client.dashboard', compact('client', 'bookings'));
     }
 
     public function projects(Request $request)
     {
-        Log::info('ClientController::projects started', ['date' => $request->input('date')]);
-        $date = $request->input('date', now()->format('Y-m-d'));
-        $projects = Project::with(['services' => function ($query) {
-            $query->select('id', 'project_id', 'name', 'duration', 'price');
-        }])
+        Log::info('ClientController::projects started', ['params' => $request->all()]);
+        $projects = Project::with(['master'])
             ->paginate(10);
-
-        $slotsByService = [];
-        foreach ($projects as $project) {
-            foreach ($project->services as $service) {
-                $slotsByService[$service->id] = $this->getAvailableSlots($project, $service, $date);
-            }
-        }
-
-        Log::info('ClientController::projects completed', ['slots_count' => count($slotsByService)]);
-        return view('client.projects', compact('projects', 'slotsByService', 'date'));
+        Log::info('ClientController::projects completed', ['projects_count' => $projects->count()]);
+        return view('client.projects', compact('projects'));
     }
 
     public function showProject($slug, Request $request)
     {
-        Log::info('ClientController::showProject started', ['slug' => $slug, 'date' => $request->input('date')]);
+        Log::info('ClientController::showProject started', ['slug' => $slug, 'params' => $request->all()]);
         $project = Project::where('slug', $slug)
             ->with(['services' => function ($query) {
-                $query->select('id', 'project_id', 'name', 'duration', 'price');
-            }])
+                $query->select('id', 'project_id', 'name', 'duration', 'price', 'category_id');
+            }, 'categories'])
             ->firstOrFail();
+        $categories = $project->categories;
+        $services = $project->services;
         $date = $request->input('date', now()->format('Y-m-d'));
 
         $slotsByService = [];
-        foreach ($project->services as $service) {
+        foreach ($services as $service) {
             $slotsByService[$service->id] = $this->getAvailableSlots($project, $service, $date);
         }
 
         Log::info('ClientController::showProject completed', ['slots_count' => count($slotsByService)]);
-        return view('client.project', compact('project', 'slotsByService', 'date'));
+        return view('client.project', compact('project', 'categories', 'services', 'slotsByService', 'date'));
     }
 
     protected function getAvailableSlots(Project $project, Service $service, $date)
@@ -184,14 +185,13 @@ class ClientController extends Controller
         $scheduleStart = Carbon::parse($date . ' ' . $dailySchedule->start_time);
         $scheduleEnd = Carbon::parse($date . ' ' . $dailySchedule->end_time);
         $nextTime = $currentTime->copy();
-        $roundingInterval = 15; // Округление до 15 минут
+        $roundingInterval = 15;
 
         Log::debug('getNextSlotTime started', [
             'currentTime' => $currentTime->toDateTimeString(),
             'slotStep' => $slotStep
         ]);
 
-        // Проверка пересечений с бронированиями и перерывами
         $slotEnd = $nextTime->copy()->addMinutes($service->duration);
         $latestEnd = $nextTime;
         $lastBookingDuration = null;
@@ -219,7 +219,7 @@ class ClientController extends Controller
             if ($currentTime->lt($breakEnd) && $slotEnd->gt($breakStart)) {
                 if ($breakEnd->gt($latestEnd)) {
                     $latestEnd = $breakEnd->copy();
-                    $lastBookingDuration = null; // Перерывы не влияют на округление
+                    $lastBookingDuration = null;
                 }
                 Log::debug('Overlap with break', [
                     'break_start' => $breakStart->toDateTimeString(),
@@ -230,11 +230,9 @@ class ClientController extends Controller
             }
         }
 
-        // Если есть пересечения, берем конец самого позднего события
         if ($latestEnd->gt($nextTime)) {
             $nextTime = $latestEnd->copy();
             Log::debug('Adjusted to latest end', ['new_next_time' => $nextTime->toDateTimeString()]);
-            // Округление до 15 минут, если длительность бронирования не кратна 15
             if ($lastBookingDuration && ($lastBookingDuration % 15 !== 0)) {
                 $minutes = $nextTime->minute;
                 $roundedMinutes = ceil($minutes / $roundingInterval) * $roundingInterval;
@@ -249,15 +247,8 @@ class ClientController extends Controller
                 ]);
             }
         } else {
-            // Если нет пересечений, добавляем slotStep
             $nextTime->addMinutes($slotStep);
             Log::debug('Added slotStep', ['new_next_time' => $nextTime->toDateTimeString(), 'slotStep' => $slotStep]);
-        }
-
-        // Проверка выхода за пределы расписания
-        if ($nextTime->gt($scheduleEnd)) {
-            $nextTime = $scheduleEnd->copy();
-            Log::debug('Adjusted to schedule end', ['next_time' => $nextTime->toDateTimeString()]);
         }
 
         return $nextTime;
@@ -294,14 +285,24 @@ class ClientController extends Controller
         return redirect()->route('client.project', $slug)->with('message', 'Запись создана');
     }
 
-    public function bookings()
+    public function bookings(Request $request)
     {
-        Log::info('ClientController::bookings started');
+        Log::info('ClientController::bookings started', ['params' => $request->all()]);
         $client = Auth::guard('client')->user();
-        $bookings = Booking::where('client_id', $client->id)
+        $query = Booking::where('client_id', $client->id)
             ->with(['project', 'service', 'dailySchedule'])
-            ->orderBy('start_time', 'desc')
-            ->paginate(10);
+            ->orderBy('start_time', 'desc');
+
+        if ($request->has('status') && in_array($request->status, ['pending', 'confirmed', 'canceled'])) {
+            $query->where('status', $request->status);
+        }
+        if ($request->has('date')) {
+            $query->whereHas('dailySchedule', function ($q) use ($request) {
+                $q->where('date', $request->date);
+            });
+        }
+
+        $bookings = $query->paginate(10);
         Log::info('ClientController::bookings completed', ['bookings_count' => $bookings->count()]);
         return view('client.bookings', compact('bookings'));
     }
@@ -311,19 +312,25 @@ class ClientController extends Controller
         Log::info('addProjectToFavorites started', ['slug' => $slug]);
         $project = Project::where('slug', $slug)->firstOrFail();
         $client = Auth::guard('client')->user();
-        $client->projects()->syncWithoutDetaching([$project->id]);
-        Log::info('Project added to favorites', ['project_id' => $project->id, 'client_id' => $client->id]);
-        return redirect()->route('client.project', $slug)->with('message', 'Проект добавлен в избранное');
+        if ($client->projects()->where('project_id', $project->id)->exists()) {
+            $client->projects()->detach($project->id);
+            $message = 'Проект удалён из избранного';
+        } else {
+            $client->projects()->syncWithoutDetaching([$project->id]);
+            $message = 'Проект добавлен в избранное';
+        }
+        Log::info('Project favorite toggled', ['project_id' => $project->id, 'client_id' => $client->id]);
+        return redirect()->route('client.project', $slug)->with('message', $message);
     }
 
     public function cancelBooking(Request $request, Booking $booking)
     {
         Log::info('cancelBooking started', ['booking_id' => $booking->id]);
         if ($booking->client_id !== Auth::guard('client')->id()) {
-            return redirect()->route('client.bookings')->with('error', 'Недостаточно прав для отмены');
+            return response()->json(['error' => 'Недостаточно прав для отмены'], 403);
         }
         $booking->update(['status' => 'canceled']);
         Log::info('Booking canceled', ['booking_id' => $booking->id]);
-        return redirect()->route('client.bookings')->with('message', 'Запись отменена');
+        return response()->json(['message' => 'Запись отменена']);
     }
 }
