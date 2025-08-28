@@ -203,40 +203,24 @@ class DailyScheduleTemplateBreak extends Model
 }
 
 
-========== File: app/Models/Master.php ==========
+========== File: app/Models/Invitation.php ==========
 <?php
-
 namespace App\Models;
+use Illuminate\Database\Eloquent\Model;
 
-use Illuminate\Foundation\Auth\User as Authenticatable;
-
-class Master extends Authenticatable
+class Invitation extends Model
 {
-    protected $fillable = ['email', 'name'];
+    protected $fillable = ['project_id', 'specialist_id', 'email', 'token', 'permissions', 'status'];
+    protected $casts = ['permissions' => 'array'];
 
-    public function authProviders()
+    public function project()
     {
-        return $this->hasMany(MasterAuthProvider::class);
+        return $this->belongsTo(Project::class);
     }
 
-    public function projects()
+    public function specialist()
     {
-        return $this->hasMany(Project::class);
-    }
-
-    public function tariffs()
-    {
-        return $this->hasMany(MasterTariff::class);
-    }
-
-    public function payments()
-    {
-        return $this->hasMany(Payment::class);
-    }
-
-    public function blacklists()
-    {
-        return $this->belongsToMany(Client::class, 'blacklist', 'master_id', 'client_id')->withPivot('reason');
+        return $this->belongsTo(Specialist::class);
     }
 }
 
@@ -319,9 +303,7 @@ class Payment extends Model
 
 ========== File: app/Models/Project.php ==========
 <?php
-
 namespace App\Models;
-
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
@@ -330,12 +312,11 @@ class Project extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['master_id', 'name', 'description', 'slug'];
+    protected $fillable = ['name', 'description', 'slug', 'balance'];
 
     protected static function boot()
     {
         parent::boot();
-
         static::creating(function ($project) {
             if (empty($project->slug)) {
                 $project->slug = Str::slug($project->name);
@@ -353,9 +334,15 @@ class Project extends Model
         return 'slug';
     }
 
-    public function master()
+    public function specialists()
     {
-        return $this->belongsTo(Master::class);
+        return $this->belongsToMany(Specialist::class, 'project_specialists')
+            ->withPivot('permissions', 'is_owner');
+    }
+
+    public function owner()
+    {
+        return $this->specialists()->wherePivot('is_owner', true)->first();
     }
 
     public function services()
@@ -414,6 +401,52 @@ class Service extends Model
     public function bookings()
     {
         return $this->hasMany(Booking::class);
+    }
+}
+
+
+========== File: app/Models/SmsCode.php ==========
+<?php
+namespace App\Models;
+use Illuminate\Database\Eloquent\Model;
+
+class SmsCode extends Model
+{
+    protected $fillable = ['user_type', 'user_id', 'phone', 'code', 'expires_at'];
+    protected $dates = ['expires_at'];
+}
+
+
+========== File: app/Models/Specialist.php ==========
+<?php
+namespace App\Models;
+
+use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Notifications\Notifiable;
+
+class Specialist extends Authenticatable
+{
+    use Notifiable;
+
+    protected $guard = 'specialist';
+
+    protected $fillable = [
+        'name',
+        'email',
+        'phone',
+        'password',
+    ];
+
+    protected $hidden = [
+        'password',
+        'remember_token',
+    ];
+
+    public function projects()
+    {
+        return $this->belongsToMany(Project::class, 'project_specialists')
+            ->withPivot('is_owner', 'permissions')
+            ->withTimestamps();
     }
 }
 

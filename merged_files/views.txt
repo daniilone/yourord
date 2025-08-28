@@ -195,31 +195,31 @@
 
 
 ========== File: resources/views/client/auth/login.blade.php ==========
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Вход клиента - YourOrd</title>
-</head>
-<body>
-<h1>Вход клиента</h1>
-<form method="POST" action="{{ route('client.auth.send-code') }}">
-    @csrf
-    <div>
-        <label for="email">Email</label>
-        <input type="email" name="email" id="email" required>
+@extends('layouts.client')
+@section('title', 'Вход - Клиент')
+@section('content')
+    <div class="max-w-md mx-auto mt-10">
+        <h1 class="text-2xl font-bold mb-6 text-gray-800">Вход</h1>
+        <form method="POST" action="{{ route('client.auth.login') }}" class="space-y-4">
+            @csrf
+            <div>
+                <label for="phone" class="block text-sm font-medium text-gray-700">Телефон</label>
+                <input type="text" name="phone" id="phone" value="{{ old('phone') }}" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm">
+                @error('phone')
+                <p class="text-red-600 text-sm mt-1">{{ $message }}</p>
+                @enderror
+            </div>
+            <div>
+                <label for="password" class="block text-sm font-medium text-gray-700">Пароль (опционально)</label>
+                <input type="password" name="password" id="password" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm">
+                @error('password')
+                <p class="text-red-600 text-sm mt-1">{{ $message }}</p>
+                @enderror
+            </div>
+            <button type="submit" class="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700">Войти</button>
+        </form>
     </div>
-    <button type="submit">Отправить код</button>
-    @if (session('message'))
-        <p style="color: green;">{{ session('message') }}</p>
-    @endif
-    @error('email')
-    <p style="color: red;">{{ $message }}</p>
-    @enderror
-</form>
-</body>
-</html>
+@endsection
 
 
 ========== File: resources/views/client/auth/verify-code.blade.php ==========
@@ -251,12 +251,45 @@
 </html>
 
 
+========== File: resources/views/client/auth/verify.blade.php ==========
+@extends('layouts.client')
+@section('title', 'Подтверждение кода - Клиент')
+@section('content')
+    <div class="max-w-md mx-auto mt-10">
+        <h1 class="text-2xl font-bold mb-6 text-gray-800">Введите код из SMS</h1>
+        <form method="POST" action="{{ route('client.auth.verify') }}" class="space-y-4">
+            @csrf
+            <div>
+                <label for="code" class="block text-sm font-medium text-gray-700">Код</label>
+                <input type="text" name="code" id="code" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm">
+                @error('code')
+                <p class="text-red-600 text-sm mt-1">{{ $message }}</p>
+                @enderror
+            </div>
+            <button type="submit" class="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700">Подтвердить</button>
+        </form>
+    </div>
+@endsection
+
+
 ========== File: resources/views/client/bookings.blade.php ==========
 @extends('layouts.client')
 @section('title', 'Мои записи - YourOrd')
 @section('content')
     <div class="max-w-7xl mx-auto">
         <h1 class="text-3xl font-bold mb-6 text-gray-800">Мои записи</h1>
+        <div class="mb-4 flex space-x-4">
+            <form method="GET" action="{{ route('client.bookings') }}" class="flex space-x-2">
+                <select name="status" class="border-gray-300 rounded-md shadow-sm">
+                    <option value="">Все статусы</option>
+                    <option value="pending" {{ request('status') == 'pending' ? 'selected' : '' }}>Ожидает</option>
+                    <option value="confirmed" {{ request('status') == 'confirmed' ? 'selected' : '' }}>Подтверждено</option>
+                    <option value="cancelled" {{ request('status') == 'cancelled' ? 'selected' : '' }}>Отменено</option>
+                </select>
+                <input type="date" name="date" value="{{ request('date') }}" class="border-gray-300 rounded-md shadow-sm">
+                <button type="submit" class="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700">Фильтр</button>
+            </form>
+        </div>
         <div class="bg-white shadow overflow-hidden sm:rounded-lg">
             <table class="min-w-full divide-y divide-gray-200">
                 <thead class="bg-gray-50">
@@ -280,7 +313,7 @@
                         <td class="px-6 py-4 whitespace-nowrap">{{ $booking->start_time }}</td>
                         <td class="px-6 py-4 whitespace-nowrap">
                                 <span class="font-medium {{ $booking->status == 'confirmed' ? 'text-green-600' : ($booking->status == 'pending' ? 'text-yellow-600' : 'text-red-600') }}">
-                                    {{ $booking->status }}
+                                    {{ $booking->status == 'pending' ? 'Ожидает' : ($booking->status == 'confirmed' ? 'Подтверждено' : 'Отменено') }}
                                 </span>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap">
@@ -296,6 +329,9 @@
                 @endforeach
                 </tbody>
             </table>
+        </div>
+        <div class="mt-4">
+            {{ $bookings->links('pagination::tailwind') }}
         </div>
     </div>
 @endsection
@@ -331,7 +367,7 @@
                         <td class="px-6 py-4 whitespace-nowrap">{{ $booking->start_time }}</td>
                         <td class="px-6 py-4 whitespace-nowrap">
                                 <span class="font-medium {{ $booking->status == 'confirmed' ? 'text-green-600' : ($booking->status == 'pending' ? 'text-yellow-600' : 'text-red-600') }}">
-                                    {{ $booking->status }}
+                                    {{ $booking->status == 'pending' ? 'Ожидает' : ($booking->status == 'confirmed' ? 'Подтверждено' : 'Отменено') }}
                                 </span>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap">
@@ -347,6 +383,9 @@
                 @endforeach
                 </tbody>
             </table>
+        </div>
+        <div class="mt-4">
+            {{ $bookings->links('pagination::tailwind') }}
         </div>
     </div>
 @endsection
@@ -438,7 +477,6 @@
 
             function updateSlotsByDate(event) {
                 const date = event.target.value;
-                const serviceId = document.querySelector('select[name="service_id"]').value;
                 window.location.href = '{{ route('client.project', $project->slug) }}?date=' + date;
             }
         </script>
@@ -459,7 +497,7 @@
                 <tr>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Название</th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Описание</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Мастер</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Специалист</th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Действия</th>
                 </tr>
                 </thead>
@@ -468,7 +506,7 @@
                     <tr>
                         <td class="px-6 py-4 whitespace-nowrap">{{ $project->name }}</td>
                         <td class="px-6 py-4 whitespace-nowrap">{{ $project->description ?? '-' }}</td>
-                        <td class="px-6 py-4 whitespace-nowrap">{{ $project->master->name ?? $project->master->email }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap">{{ $project->owner()->name ?? $project->owner()->email }}</td>
                         <td class="px-6 py-4 whitespace-nowrap">
                             <a href="{{ route('client.project', $project->slug) }}" class="text-indigo-600 hover:text-indigo-800">Просмотреть</a>
                         </td>
@@ -484,6 +522,40 @@
 @endsection
 
 
+========== File: resources/views/emails/invitation.blade.php ==========
+@component('mail::message')
+    # Приглашение в проект
+
+    Вы приглашены в проект "{{ $invitation->project->name }}".
+
+    **Права:**
+    @foreach ($invitation->permissions ?? [] as $permission)
+        - @if ($permission == 'manage_schedule')
+            Управление расписанием
+        @elseif ($permission == 'view_schedule')
+            Просмотр расписания
+        @elseif ($permission == 'manage_balance')
+            Управление балансом
+        @elseif ($permission == 'manage_specialists')
+            Управление специалистами
+        @elseif ($permission == 'confirm_bookings')
+            Подтверждение записей
+        @elseif ($permission == 'manual_bookings')
+            Ручное добавление записей
+        @elseif ($permission == 'manage_services')
+            Управление услугами
+        @endif
+    @endforeach
+
+    @component('mail::button', ['url' => $url])
+        Принять приглашение
+    @endcomponent
+
+    Спасибо,
+    YourOrd
+@endcomponent
+
+
 ========== File: resources/views/layouts/client.blade.php ==========
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
@@ -496,23 +568,22 @@
     <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
     <style>
         .sidebar {
-            background-color: #4B5EAA; /* primary */
+            background-color: #4B5EAA;
         }
         .sidebar a:hover {
-            background-color: #6B7280; /* secondary */
+            background-color: #6B7280;
         }
         .sidebar a.active {
-            background-color: #34D399; /* accent */
+            background-color: #34D399;
         }
         body {
-            background-color: #F3F4F6; /* background */
+            background-color: #F3F4F6;
         }
     </style>
     @stack('styles')
 </head>
 <body class="font-sans antialiased">
 <div x-data="{ sidebarOpen: false }" class="min-h-screen flex">
-    <!-- Sidebar -->
     <div :class="sidebarOpen ? 'translate-x-0' : '-translate-x-full'" class="sidebar fixed inset-y-0 left-0 w-64 text-white transform transition-transform duration-300 ease-in-out md:translate-x-0 z-30">
         <div class="p-4 flex items-center justify-between">
             <h2 class="text-xl font-bold">YourOrd</h2>
@@ -533,7 +604,6 @@
         </nav>
     </div>
 
-    <!-- Mobile menu button -->
     <div class="md:hidden fixed top-4 left-4 z-40">
         <button @click="sidebarOpen = !sidebarOpen" class="text-gray-800 focus:outline-none">
             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -542,7 +612,6 @@
         </button>
     </div>
 
-    <!-- Main content -->
     <main class="flex-1 ml-0 md:ml-64 p-6">
         @if (session('message'))
             <div class="bg-green-100 border-l-4 border-green-500 text-green-700 p-4 mb-4" role="alert">
@@ -564,146 +633,62 @@
 </html>
 
 
-========== File: resources/views/layouts/master.blade.php ==========
+========== File: resources/views/layouts/specialist.blade.php ==========
 <!DOCTYPE html>
-<html lang="ru" class="h-full bg-gray-100">
+<html lang="ru">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>@yield('title', 'YourOrd - Панель мастера')</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    @stack('styles')
+    <title>@yield('title')</title>
+    @vite(['resources/css/app.css', 'resources/js/app.js'])
+    <style>
+        body {
+            background-color: #F3F4F6;
+            color: #6B7280;
+        }
+        .bg-primary { background-color: #4B5EAA; }
+        .text-primary { color: #4B5EAA; }
+        .bg-success { background-color: #34D399; }
+    </style>
 </head>
-<body class="h-full">
-<div class="min-h-full">
-    <nav class="bg-indigo-600">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex items-center justify-between h-16">
-                <div class="flex items-center">
-                    <div class="flex-shrink-0">
-                        <span class="text-white font-bold text-xl">YourOrd</span>
-                    </div>
-                    <div class="hidden md:block">
-                        <div class="ml-10 flex items-baseline space-x-4">
-                            <a href="{{ route('master.dashboard') }}" class="{{ request()->routeIs('master.dashboard') ? 'bg-indigo-700' : 'hover:bg-indigo-500' }} text-white px-3 py-2 rounded-md text-sm font-medium">
-                                <i class="fas fa-tachometer-alt mr-1"></i> Дашборд
-                            </a>
-                            <a href="{{ route('master.projects') }}" class="{{ request()->routeIs('master.projects*') ? 'bg-indigo-700' : 'hover:bg-indigo-500' }} text-white px-3 py-2 rounded-md text-sm font-medium">
-                                <i class="fas fa-project-diagram mr-1"></i> Проекты
-                            </a>
-                            <a href="{{ route('master.categories') }}" class="{{ request()->routeIs('master.categories*') ? 'bg-indigo-700' : 'hover:bg-indigo-500' }} text-white px-3 py-2 rounded-md text-sm font-medium">
-                                <i class="fas fa-tags mr-1"></i> Категории
-                            </a>
-                            <a href="{{ route('master.services') }}" class="{{ request()->routeIs('master.services*') ? 'bg-indigo-700' : 'hover:bg-indigo-500' }} text-white px-3 py-2 rounded-md text-sm font-medium">
-                                <i class="fas fa-concierge-bell mr-1"></i> Услуги
-                            </a>
-                            <a href="{{ route('master.daily_schedules') }}" class="{{ request()->routeIs('master.daily_schedules*') ? 'bg-indigo-700' : 'hover:bg-indigo-500' }} text-white px-3 py-2 rounded-md text-sm font-medium">
-                                <i class="far fa-calendar-alt mr-1"></i> Расписание
-                            </a>
-                            <a href="{{ route('master.bookings') }}" class="{{ request()->routeIs('master.bookings*') ? 'bg-indigo-700' : 'hover:bg-indigo-500' }} text-white px-3 py-2 rounded-md text-sm font-medium">
-                                <i class="fas fa-calendar-check mr-1"></i> Записи
-                            </a>
-                        </div>
-                    </div>
-                </div>
-                <div class="hidden md:block">
-                    <div class="ml-4 flex items-center md:ml-6">
-                        <div class="ml-3 relative">
-                            <div class="relative">
-                                <button type="button" class="max-w-xs bg-indigo-600 rounded-full flex items-center text-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-indigo-600 focus:ring-white" id="user-menu" aria-expanded="false" aria-haspopup="true">
-                                    <span class="sr-only">Открыть меню пользователя</span>
-                                    <span class="text-white font-medium mr-2">{{ auth('master')->user()->name }}</span>
-                                    <img class="h-8 w-8 rounded-full" src="https://ui-avatars.com/api/?name={{ urlencode(auth('master')->user()->name) }}&background=random" alt="">
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="-mr-2 flex md:hidden">
-                    <button type="button" id="mobile-menu-button" class="bg-indigo-600 inline-flex items-center justify-center p-2 rounded-md text-indigo-200 hover:text-white hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-indigo-600 focus:ring-white">
-                        <span class="sr-only">Открыть главное меню</span>
-                        <i class="fas fa-bars h-6 w-6"></i>
-                    </button>
+<body>
+<nav class="bg-white shadow">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="flex justify-between h-16">
+            <div class="flex">
+                <a href="{{ route('specialist.dashboard') }}" class="flex-shrink-0 flex items-center text-primary font-bold">YourOrd</a>
+                <div class="hidden sm:ml-6 sm:flex sm:space-x-8">
+                    <a href="{{ route('specialist.dashboard') }}" class="border-primary text-primary inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">Дашборд</a>
+                    <a href="{{ route('specialist.projects') }}" class="border-transparent text-gray-500 hover:border-primary hover:text-primary inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">Проекты</a>
+                    <a href="{{ route('specialist.bookings') }}" class="border-transparent text-gray-500 hover:border-primary hover:text-primary inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">Записи</a>
+                    <a href="{{ route('specialist.schedule') }}" class="border-transparent text-gray-500 hover:border-primary hover:text-primary inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">Расписание</a>
                 </div>
             </div>
-        </div>
-
-        <!-- Mobile menu -->
-        <div class="md:hidden hidden" id="mobile-menu">
-            <div class="px-2 pt-2 pb-3 space-y-1 sm:px-3">
-                <a href="{{ route('master.dashboard') }}" class="{{ request()->routeIs('master.dashboard') ? 'bg-indigo-700' : 'hover:bg-indigo-500' }} text-white block px-3 py-2 rounded-md text-base font-medium">
-                    <i class="fas fa-tachometer-alt mr-2"></i> Дашборд
-                </a>
-                <a href="{{ route('master.projects') }}" class="{{ request()->routeIs('master.projects*') ? 'bg-indigo-700' : 'hover:bg-indigo-500' }} text-white block px-3 py-2 rounded-md text-base font-medium">
-                    <i class="fas fa-project-diagram mr-2"></i> Проекты
-                </a>
-                <a href="{{ route('master.categories') }}" class="{{ request()->routeIs('master.categories*') ? 'bg-indigo-700' : 'hover:bg-indigo-500' }} text-white block px-3 py-2 rounded-md text-base font-medium">
-                    <i class="fas fa-tags mr-2"></i> Категории
-                </a>
-                <a href="{{ route('master.services') }}" class="{{ request()->routeIs('master.services*') ? 'bg-indigo-700' : 'hover:bg-indigo-500' }} text-white block px-3 py-2 rounded-md text-base font-medium">
-                    <i class="fas fa-concierge-bell mr-2"></i> Услуги
-                </a>
-                <a href="{{ route('master.daily_schedules') }}" class="{{ request()->routeIs('master.daily_schedules*') ? 'bg-indigo-700' : 'hover:bg-indigo-500' }} text-white block px-3 py-2 rounded-md text-base font-medium">
-                    <i class="far fa-calendar-alt mr-2"></i> Расписание
-                </a>
-                <a href="{{ route('master.bookings') }}" class="{{ request()->routeIs('master.bookings*') ? 'bg-indigo-700' : 'hover:bg-indigo-500' }} text-white block px-3 py-2 rounded-md text-base font-medium">
-                    <i class="fas fa-calendar-check mr-2"></i> Записи
-                </a>
-                <a href="{{ route('master.auth.logout') }}" class="text-white hover:bg-indigo-500 block px-3 py-2 rounded-md text-base font-medium">
-                    <i class="fas fa-sign-out-alt mr-2"></i> Выйти
-                </a>
+            <div class="hidden sm:ml-6 sm:flex sm:items-center">
+                @auth('specialist')
+                    <form method="POST" action="{{ route('specialist.logout') }}">
+                        @csrf
+                        <button type="submit" class="text-gray-500 hover:text-primary">Выйти</button>
+                    </form>
+                @else
+                    <a href="{{ route('specialist.login') }}" class="text-gray-500 hover:text-primary">Вход</a>
+                @endauth
             </div>
         </div>
-    </nav>
+    </div>
+</nav>
 
-    <header class="bg-white shadow">
-        <div class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
-            <h1 class="text-3xl font-bold text-gray-900">
-                @yield('header')
-            </h1>
-        </div>
-    </header>
-    <main>
-        <div class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-            @if(session('message'))
-                <div class="mb-4 p-4 bg-green-100 border border-green-400 text-green-700 rounded">
-                    {{ session('message') }}
-                </div>
-            @endif
-            @if($errors->any())
-                <div class="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded">
-                    <ul class="list-disc list-inside">
-                        @foreach($errors->all() as $error)
-                            <li>{{ $error }}</li>
-                        @endforeach
-                    </ul>
-                </div>
-            @endif
-            @yield('content')
-        </div>
-    </main>
-</div>
+<main class="py-10">
+    <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
+        @if (session('success'))
+            <div class="bg-success text-white p-4 rounded mb-4">
+                {{ session('success') }}
+            </div>
+        @endif
+        @yield('content')
+    </div>
+</main>
 
-<script>
-    // Мобильное меню
-    document.getElementById('mobile-menu-button').addEventListener('click', function() {
-        const menu = document.getElementById('mobile-menu');
-        menu.classList.toggle('hidden');
-    });
-
-    // Закрытие уведомлений при клике
-    document.addEventListener('DOMContentLoaded', function() {
-        const alerts = document.querySelectorAll('.alert-dismissible');
-        alerts.forEach(alert => {
-            setTimeout(() => {
-                alert.style.transition = 'opacity 0.5s';
-                alert.style.opacity = '0';
-                setTimeout(() => alert.remove(), 500);
-            }, 5000);
-        });
-    });
-</script>
 @stack('scripts')
 </body>
 </html>
@@ -2667,6 +2652,2221 @@
         </script>
     @endpush
 @endsection
+
+
+========== File: resources/views/specialist/auth/login.blade.php ==========
+@extends('layouts.specialist')
+@section('title', 'Вход для специалистов - YourOrd')
+@section('content')
+    <div class="min-h-screen flex items-center justify-center bg-gray-100" style="background-color: #F3F4F6;">
+        <div class="max-w-md w-full bg-white p-8 rounded-lg shadow-lg">
+            <h2 class="text-2xl font-bold mb-6 text-center" style="color: #4B5EAA;">Вход для специалистов</h2>
+
+            @if (session('phone_step'))
+                <form method="POST" action="{{ route('specialist.verify-code') }}" class="space-y-4">
+                    @csrf
+                    <div>
+                        <label for="code" class="block text-sm font-medium text-gray-700" style="color: #6B7280;">Код из SMS</label>
+                        <input type="text" name="code" id="code" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500" placeholder="Введите код">
+                        @error('code')
+                        <p class="text-red-600 text-sm mt-1">{{ $message }}</p>
+                        @enderror
+                    </div>
+                    <button type="submit" class="w-full bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700" style="background-color: #4B5EAA;">Подтвердить код</button>
+                </form>
+                <p class="mt-4 text-sm text-gray-600 text-center" style="color: #6B7280;">Код для тестирования: 123456</p>
+            @else
+                <form method="POST" action="{{ route('specialist.login') }}" class="space-y-4">
+                    @csrf
+                    <div>
+                        <label for="phone" class="block text-sm font-medium text-gray-700" style="color: #6B7280;">Номер телефона</label>
+                        <input type="text" name="phone" id="phone" value="{{ old('phone') }}" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500" placeholder="+79991234567">
+                        @error('phone')
+                        <p class="text-red-600 text-sm mt-1">{{ $message }}</p>
+                        @enderror
+                    </div>
+                    <button type="submit" class="w-full bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700" style="background-color: #4B5EAA;">Получить код</button>
+                </form>
+            @endif
+
+            <p class="mt-4 text-sm text-gray-600 text-center" style="color: #6B7280;">
+                Нет аккаунта? <a href="{{ route('specialist.register') }}" class="text-indigo-600 hover:text-indigo-800">Зарегистрироваться</a>
+            </p>
+        </div>
+    </div>
+@endsection
+
+
+========== File: resources/views/specialist/auth/verify.blade.php ==========
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Подтверждение кода - YourOrd</title>
+</head>
+<body>
+<h1>Подтверждение кода</h1>
+<form method="POST" action="{{ route('master.auth.verify-code') }}">
+    @csrf
+    <div>
+        <label for="email">Email</label>
+        <input type="email" name="email" id="email" value="{{ session('email') }}" required>
+    </div>
+    <div>
+        <label for="code">Код</label>
+        <input type="text" name="code" id="code" required>
+    </div>
+    <button type="submit">Подтвердить</
+
+
+========== File: resources/views/specialist/bookings.blade.php ==========
+@extends('layouts.specialist')
+@section('title', 'Записи - YourOrd')
+@section('content')
+    <div class="max-w-7xl mx-auto">
+        <h1 class="text-3xl font-bold mb-6 text-gray-800">Записи</h1>
+        <div class="mb-4 flex space-x-4">
+            <form method="GET" action="{{ route('specialist.bookings') }}" class="flex space-x-2">
+                <select name="status" class="border-gray-300 rounded-md shadow-sm">
+                    <option value="">Все статусы</option>
+                    <option value="pending" {{ request('status') == 'pending' ? 'selected' : '' }}>Ожидает</option>
+                    <option value="confirmed" {{ request('status') == 'confirmed' ? 'selected' : '' }}>Подтверждено</option>
+                    <option value="cancelled" {{ request('status') == 'cancelled' ? 'selected' : '' }}>Отменено</option>
+                </select>
+                <input type="date" name="date" value="{{ request('date') }}" class="border-gray-300 rounded-md shadow-sm">
+                <button type="submit" class="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700">Фильтр</button>
+            </form>
+        </div>
+        <div class="bg-white shadow overflow-hidden sm:rounded-lg">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Проект</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Услуга</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Дата</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Время</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Статус</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Действия</th>
+                </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                @foreach ($bookings as $booking)
+                    <tr>
+                        <td class="px-6 py-4 whitespace-nowrap">{{ $booking->project->name }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap">{{ $booking->service->name }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            {{ is_string($booking->dailySchedule->date) ? \Carbon\Carbon::parse($booking->dailySchedule->date)->format('d.m.Y') : $booking->dailySchedule->date->format('d.m.Y') }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">{{ $booking->start_time }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                                <span class="font-medium {{ $booking->status == 'confirmed' ? 'text-green-600' : ($booking->status == 'pending' ? 'text-yellow-600' : 'text-red-600') }}">
+                                    {{ $booking->status == 'pending' ? 'Ожидает' : ($booking->status == 'confirmed' ? 'Подтверждено' : 'Отменено') }}
+                                </span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            @if ($booking->status == 'pending' && auth('specialist')->user()->projects()->where('project_id', $booking->project_id)->first()->pivot->permissions && in_array('confirm_bookings', auth('specialist')->user()->projects()->where('project_id', $booking->project_id)->first()->pivot->permissions))
+                                <form action="{{ route('specialist.project.confirm_booking', [$booking->project->slug, $booking]) }}" method="POST" class="inline">
+                                    @csrf
+                                    <button type="submit" class="text-green-600 hover:text-green-800">Подтвердить</button>
+                                </form>
+                            @endif
+                        </td>
+                    </tr>
+                @endforeach
+                </tbody>
+            </table>
+        </div>
+        <div class="mt-4">
+            {{ $bookings->links('pagination::tailwind') }}
+        </div>
+    </div>
+@endsection
+
+
+========== File: resources/views/specialist/categories.blade.php ==========
+@extends('layouts.master')
+
+@section('title', 'Категории')
+
+@section('header', 'Управление категориями')
+
+@section('content')
+<!-- Navigation is handled by the master layout -->
+
+<div class="bg-white shadow rounded-lg mb-6">
+    <div class="px-4 py-5 sm:px-6">
+        <div class="sm:flex sm:items-center justify-between">
+            <div class="sm:w-0 flex-1">
+                <h3 class="text-lg leading-6 font-medium text-gray-900">
+                    Список категорий
+                </h3>
+                <p class="mt-1 text-sm text-gray-500">
+                    Здесь вы можете управлять категориями ваших услуг.
+                </p>
+            </div>
+            <div class="mt-4 sm:mt-0 sm:ml-4">
+                <button type="button" onclick="document.getElementById('newCategoryModal').classList.remove('hidden')" 
+                    class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                    <svg class="-ml-1 mr-2 h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                        <path fill-rule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clip-rule="evenodd" />
+                    </svg>
+                    Новая категория
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Список категорий -->
+<div class="bg-white shadow overflow-hidden sm:rounded-lg">
+    <ul class="divide-y divide-gray-200">
+        @forelse($categories as $category)
+            <li class="hover:bg-gray-50">
+                <div class="px-4 py-4 sm:px-6">
+                    <div class="flex items-center justify-between">
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0 h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center">
+                                    <span class="text-indigo-600 text-lg font-medium">{{ substr($category->name, 0, 1) }}</span>
+                                </div>
+                                <div class="ml-4">
+                                    <h3 class="text-lg font-medium text-gray-900">{{ $category->name }}</h3>
+                                    <p class="mt-1 text-sm text-gray-500">
+                                        Проект: {{ $category->project->name }}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="ml-4 flex-shrink-0 flex space-x-2">
+                            <button type="button" 
+                                onclick="openEditCategoryModal({{ $category->id }}, '{{ addslashes($category->name) }}', {{ $category->project->id }})" 
+                                class="text-indigo-600 hover:text-indigo-900">
+                                <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                    <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+                                </svg>
+                            </button>
+                            <form action="{{ route('master.categories.destroy', $category->id) }}" method="POST" onsubmit="return confirm('Вы уверены, что хотите удалить эту категорию? Услуги в этой категории не будут удалены, но перейдут в категорию \'Без категории\'')">
+                                @csrf
+                                @method('DELETE')
+                                <button type="submit" class="text-red-600 hover:text-red-900">
+                                    <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                        <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
+                                    </svg>
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </li>
+        @empty
+            <li class="px-4 py-4 sm:px-6">
+                <div class="text-center text-gray-500">
+                    <p>У вас пока нет категорий. Создайте свою первую категорию!</p>
+                </div>
+            </li>
+        @endforelse
+    </ul>
+</div>
+
+<!-- Модальное окно создания категории -->
+<div id="newCategoryModal" class="hidden fixed z-10 inset-0 overflow-y-auto">
+    <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+        <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" 
+             onclick="document.getElementById('newCategoryModal').classList.add('hidden')"></div>
+        <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+        <div class="inline-block align-bottom bg-white rounded-lg px-4 pt-5 pb-4 text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full sm:p-6">
+            <div>
+                <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">
+                    Новая категория
+                </h3>
+                <form method="POST" action="{{ route('master.categories.create') }}">
+                    @csrf
+                    <div class="space-y-4">
+                        <div>
+                            <label for="project_id" class="block text-sm font-medium text-gray-700">Проект</label>
+                            <select id="project_id" name="project_id" required
+                                class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
+                                @foreach (App\Models\Project::where('master_id', Auth::guard('master')->id())->get() as $project)
+                                    <option value="{{ $project->id }}">{{ $project->name }}</option>
+                                @endforeach
+                            </select>
+                            @error('project_id')
+                                <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
+                            @enderror
+                        </div>
+                        <div>
+                            <label for="name" class="block text-sm font-medium text-gray-700">Название категории</label>
+                            <input type="text" name="name" id="name" required 
+                                class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                            @error('name')
+                                <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
+                            @enderror
+                        </div>
+                    </div>
+                    <div class="mt-5 sm:mt-6 sm:grid sm:grid-cols-2 sm:gap-3 sm:grid-flow-row-dense">
+                        <button type="submit" class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-indigo-600 text-base font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:col-start-2 sm:text-sm">
+                            Создать категорию
+                        </button>
+                        <button type="button" 
+                            onclick="document.getElementById('newCategoryModal').classList.add('hidden')" 
+                            class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:col-start-1 sm:text-sm">
+                            Отмена
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- Модальное окно редактирования категории -->
+<div id="editCategoryModal" class="hidden fixed z-10 inset-0 overflow-y-auto">
+    <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+        <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" 
+             onclick="document.getElementById('editCategoryModal').classList.add('hidden')"></div>
+        <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+        <div class="inline-block align-bottom bg-white rounded-lg px-4 pt-5 pb-4 text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full sm:p-6">
+            <div>
+                <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">
+                    Редактировать категорию
+                </h3>
+                <form id="editCategoryForm" method="POST" action="">
+                    @csrf
+                    @method('PUT')
+                    <div class="space-y-4">
+                        <div>
+                            <label for="edit_project_id" class="block text-sm font-medium text-gray-700">Проект</label>
+                            <select id="edit_project_id" name="project_id" required
+                                class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
+                                @foreach (App\Models\Project::where('master_id', Auth::guard('master')->id())->get() as $project)
+                                    <option value="{{ $project->id }}">{{ $project->name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div>
+                            <label for="edit_name" class="block text-sm font-medium text-gray-700">Название категории</label>
+                            <input type="text" name="name" id="edit_name" required 
+                                class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                        </div>
+                    </div>
+                    <div class="mt-5 sm:mt-6 sm:grid sm:grid-cols-2 sm:gap-3 sm:grid-flow-row-dense">
+                        <button type="submit" class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-indigo-600 text-base font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:col-start-2 sm:text-sm">
+                            Сохранить изменения
+                        </button>
+                        <button type="button" 
+                            onclick="document.getElementById('editCategoryModal').classList.add('hidden')" 
+                            class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:col-start-1 sm:text-sm">
+                            Отмена
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+@push('scripts')
+<script>
+    function openEditCategoryModal(id, name, projectId) {
+        document.getElementById('edit_name').value = name;
+        document.getElementById('edit_project_id').value = projectId;
+        document.getElementById('editCategoryForm').action = `/master/categories/${id}`;
+        document.getElementById('editCategoryModal').classList.remove('hidden');
+    }
+
+    // Закрытие модальных окон при нажатии на клавишу Escape
+    document.addEventListener('keydown', function(event) {
+        if (event.key === 'Escape') {
+            document.getElementById('newCategoryModal').classList.add('hidden');
+            document.getElementById('editCategoryModal').classList.add('hidden');
+        }
+    });
+
+    // Закрытие модальных окон при клике вне формы
+    document.addEventListener('click', function(event) {
+        if (event.target.classList.contains('fixed') && event.target.classList.contains('inset-0')) {
+            document.getElementById('newCategoryModal').classList.add('hidden');
+            document.getElementById('editCategoryModal').classList.add('hidden');
+        }
+    });
+</script>
+@endpush
+@endsection
+
+
+========== File: resources/views/specialist/daily_schedules.blade.php ==========
+@extends('layouts.master')
+
+@section('title', 'Расписание - YourOrd')
+
+@section('header', 'Расписание мастера')
+
+@push('styles')
+    <link href="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        #calendar {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 1rem;
+        }
+        .fc-daygrid-day-number {
+            font-size: 1rem;
+            font-weight: 600;
+        }
+        .fc-event {
+            cursor: pointer;
+            border-radius: 0.25rem;
+            padding: 0.25rem;
+        }
+        .modal {
+            transition: opacity 0.3s ease-in-out, visibility 0.3s ease-in-out;
+            z-index: 9999;
+        }
+        .modal-content {
+            transform: scale(0.95);
+            transition: transform 0.2s ease-in-out;
+        }
+        .modal:not(.hidden) .modal-content {
+            transform: scale(1);
+        }
+        .break-row {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+        .break-row input {
+            width: 120px;
+        }
+    </style>
+@endpush
+
+@section('content')
+    <div class="container mx-auto px-4 py-8">
+        <div id="calendar" class="bg-white rounded-lg shadow-lg"></div>
+
+        <!-- Модальное окно для создания/редактирования расписания -->
+        <div class="modal fade fixed top-0 left-0 hidden w-full h-full bg-black bg-opacity-50 flex items-center justify-center" id="scheduleModal" tabindex="-1">
+            <div class="modal-content bg-white rounded-lg w-full max-w-md p-6">
+                <form id="scheduleForm" method="POST" action="{{ route('master.daily_schedules.create') }}">
+                    @csrf
+                    <input type="hidden" name="_method" id="form_method" value="POST">
+                    <input type="hidden" name="schedule_id" id="modal_schedule_id">
+                    <div class="mb-4">
+                        <label for="modal_project_id" class="block text-sm font-medium text-gray-700">Проект</label>
+                        <select name="project_id" id="modal_project_id" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" required>
+                            @foreach (App\Models\Project::where('master_id', Auth::guard('master')->id())->get() as $project)
+                                <option value="{{ $project->id }}">{{ $project->name }}</option>
+                            @endforeach
+                        </select>
+                        @error('project_id')
+                        <div class="text-red-600 text-sm mt-1">{{ $message }}</div>
+                        @enderror
+                    </div>
+                    <div class="mb-4">
+                        <label for="modal_date" class="block text-sm font-medium text-gray-700">Дата</label>
+                        <input type="date" name="date" id="modal_date" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" required>
+                        @error('date')
+                        <div class="text-red-600 text-sm mt-1">{{ $message }}</div>
+                        @enderror
+                    </div>
+                    <div class="mb-4">
+                        <label class="flex items-center">
+                            <input type="checkbox" name="is_working_day" id="modal_is_working_day" value="1" class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded" checked>
+                            <span class="ml-2 text-sm text-gray-700">Рабочий день</span>
+                        </label>
+                    </div>
+                    <div id="work_time_block">
+                        <div class="mb-4">
+                            <label for="modal_start_time" class="block text-sm font-medium text-gray-700">Время начала</label>
+                            <input type="time" name="start_time" id="modal_start_time" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" step="60">
+                            @error('start_time')
+                            <div class="text-red-600 text-sm mt-1">{{ $message }}</div>
+                            @enderror
+                        </div>
+                        <div class="mb-4">
+                            <label for="modal_end_time" class="block text-sm font-medium text-gray-700">Время окончания</label>
+                            <input type="time" name="end_time" id="modal_end_time" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" step="60">
+                            @error('end_time')
+                            <div class="text-red-600 text-sm mt-1">{{ $message }}</div>
+                            @enderror
+                        </div>
+                        <div id="breaks_block">
+                            <h3 class="text-lg font-medium text-gray-900 mb-2">Перерывы</h3>
+                            <div id="breaks_container"></div>
+                            <button type="button" id="add_break" class="mt-2 text-indigo-600 hover:text-indigo-800 text-sm font-medium">+ Добавить перерыв</button>
+                        </div>
+                    </div>
+                    <div class="mt-6 flex justify-end gap-2">
+                        <button type="button" id="cancel_modal" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300">Отменить</button>
+                        <button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">Сохранить</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    @push('scripts')
+        <script src="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.js"></script>
+        <script>
+            document.addEventListener('DOMContentLoaded', function () {
+                const calendarEl = document.getElementById('calendar');
+                const modal = document.getElementById('scheduleModal');
+                const form = document.getElementById('scheduleForm');
+                const formMethod = document.getElementById('form_method');
+
+                const calendar = new FullCalendar.Calendar(calendarEl, {
+                    initialView: 'dayGridMonth',
+                    locale: 'ru',
+                    headerToolbar: {
+                        left: 'prev,next today',
+                        center: 'title',
+                        right: 'dayGridMonth,timeGridWeek,timeGridDay'
+                    },
+                    events: [
+                            @foreach ($schedules as $schedule)
+                        {
+                            title: '{{ $schedule->is_working_day ? "Рабочий день" : "Выходной" }}',
+                            start: '{{ \Carbon\Carbon::parse($schedule->date)->format('Y-m-d') }}',
+                            color: '{{ $schedule->is_working_day ? "#10b981" : "#ef4444" }}',
+                            extendedProps: {
+                                schedule_id: {{ $schedule->id }},
+                                project_id: {{ $schedule->project_id }},
+                                start_time: '{{ $schedule->start_time }}',
+                                end_time: '{{ $schedule->end_time }}',
+                                breaks: @json($schedule->workBreaks->map(fn($break) => ['start_time' => $break->start_time, 'end_time' => $break->end_time]))
+                            }
+                        },
+                        @endforeach
+                    ],
+                    eventClick: function (info) {
+                        const event = info.event;
+                        form.action = '{{ route("master.daily_schedules.update", ":id") }}'.replace(':id', event.extendedProps.schedule_id);
+                        formMethod.value = 'PATCH';
+                        document.getElementById('modal_schedule_id').value = event.extendedProps.schedule_id;
+                        document.getElementById('modal_project_id').value = event.extendedProps.project_id;
+                        document.getElementById('modal_date').value = event.startStr;
+                        document.getElementById('modal_is_working_day').checked = event.title === 'Рабочий день';
+                        document.getElementById('modal_start_time').value = formatTime(event.extendedProps.start_time) || '';
+                        document.getElementById('modal_end_time').value = formatTime(event.extendedProps.end_time) || '';
+                        const breaksContainer = document.getElementById('breaks_container');
+                        breaksContainer.innerHTML = '';
+                        event.extendedProps.breaks.forEach((b, index) => {
+                            breaksContainer.innerHTML += `
+                        <div class="break-row">
+                            <input type="time" name="breaks[${index}][start_time]" value="${formatTime(b.start_time)}" class="border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" step="60" required>
+                            <input type="time" name="breaks[${index}][end_time]" value="${formatTime(b.end_time)}" class="border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" step="60" required>
+                            <button type="button" class="text-red-600 hover:text-red-800 remove-break"><i class="fas fa-trash"></i></button>
+                        </div>
+                    `;
+                        });
+                        toggleWorkTimeBlock();
+                        modal.classList.remove('hidden');
+                    },
+                    dateClick: function (info) {
+                        form.action = '{{ route("master.daily_schedules.create") }}';
+                        formMethod.value = 'POST';
+                        document.getElementById('modal_schedule_id').value = '';
+                        document.getElementById('modal_date').value = info.dateStr;
+                        document.getElementById('modal_is_working_day').checked = true;
+                        document.getElementById('modal_start_time').value = '';
+                        document.getElementById('modal_end_time').value = '';
+                        document.getElementById('breaks_container').innerHTML = '';
+                        toggleWorkTimeBlock();
+                        modal.classList.remove('hidden');
+                    }
+                });
+                calendar.render();
+
+                // Форматирование времени в HH:MM
+                function formatTime(time) {
+                    if (!time) return '';
+                    // Если время содержит секунды (HH:MM:SS), обрезаем их
+                    if (time.match(/^\d{2}:\d{2}:\d{2}$/)) {
+                        return time.substring(0, 5); // Возвращаем HH:MM
+                    }
+                    return time;
+                }
+
+                // Переключение видимости блока времени
+                document.getElementById('modal_is_working_day').addEventListener('change', toggleWorkTimeBlock);
+                function toggleWorkTimeBlock() {
+                    const isWork = document.getElementById('modal_is_working_day').checked;
+                    document.getElementById('work_time_block').style.display = isWork ? 'block' : 'none';
+                    document.getElementById('modal_start_time').required = isWork;
+                    document.getElementById('modal_end_time').required = isWork;
+                    // Устанавливаем required для полей breaks
+                    const breakInputs = document.querySelectorAll('#breaks_container input[type="time"]');
+                    breakInputs.forEach(input => input.required = isWork);
+                }
+
+                // Добавление перерыва
+                let breakIndex = 0;
+                document.getElementById('add_break').addEventListener('click', function () {
+                    const container = document.getElementById('breaks_container');
+                    container.innerHTML += `
+                <div class="break-row">
+                    <input type="time" name="breaks[${breakIndex}][start_time]" class="border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" step="60" required>
+                    <input type="time" name="breaks[${breakIndex}][end_time]" class="border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" step="60" required>
+                    <button type="button" class="text-red-600 hover:text-red-800 remove-break"><i class="fas fa-trash"></i></button>
+                </div>
+            `;
+                    toggleWorkTimeBlock();
+                    breakIndex++;
+                });
+
+                // Удаление перерыва
+                document.addEventListener('click', function (e) {
+                    if (e.target.classList.contains('remove-break') || e.target.closest('.remove-break')) {
+                        e.target.closest('.break-row').remove();
+                    }
+                });
+
+                // Закрытие модала
+                document.getElementById('cancel_modal').addEventListener('click', function () {
+                    modal.classList.add('hidden');
+                });
+
+                // Отладка отправки формы
+                form.addEventListener('submit', function (e) {
+                    console.log('Form data:', new FormData(form));
+                });
+            });
+        </script>
+    @endpush
+@endsection
+
+
+========== File: resources/views/specialist/daily_schedule_templates.blade.php ==========
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Шаблоны расписания - YourOrd</title>
+</head>
+<body>
+<h1>Шаблоны расписания</h1>
+<a href="{{ route('master.dashboard') }}">Назад в кабинет</a>
+<a href="{{ route('master.daily_schedules') }}">Расписание</a>
+<a href="{{ route('master.auth.logout') }}">Выйти</a>
+
+<h2>Ваши шаблоны</h2>
+<table>
+    <thead>
+    <tr>
+        <th>Проект</th>
+        <th>Название</th>
+        <th>Рабочий день</th>
+        <th>Рабочее время</th>
+        <th>Перерывы</th>
+        <th>Действия</th>
+    </tr>
+    </thead>
+    <tbody>
+    @foreach ($templates as $template)
+        <tr>
+            <td>{{ $template->project->name }}</td>
+            <td>{{ $template->name }}</td>
+            <td>{{ $template->is_working_day ? 'Да' : 'Нет' }}</td>
+            <td>
+                @if ($template->is_working_day)
+                    {{ $template->start_time }} - {{ $template->end_time }}
+                @else
+                    -
+                @endif
+            </td>
+            <td>
+                @foreach ($template->breaks as $break)
+                    {{ $break->start_time }} - {{ $break->end_time }}<br>
+                @endforeach
+            </td>
+            <td>
+                <form method="POST" action="{{ route('master.daily_schedule_templates.apply') }}">
+                    @csrf
+                    <input type="hidden" name="template_id" value="{{ $template->id }}">
+                    <label for="date_{{ $template->id }}">Дата</label>
+                    <input type="date" name="date" id="date_{{ $template->id }}" required>
+                    <button type="submit">Применить</button>
+                </form>
+            </td>
+        </tr>
+    @endforeach
+    </tbody>
+</table>
+
+<h2>Создать шаблон</h2>
+<form method="POST" action="{{ route('master.daily_schedule_templates.create') }}">
+    @csrf
+    <div>
+        <label for="project_id">Проект</label>
+        <select name="project_id" id="project_id" required>
+            @foreach (auth('master')->user()->projects as $project)
+                <option value="{{ $project->id }}">{{ $project->name }}</option>
+            @endforeach
+        </select>
+    </div>
+    <div>
+        <label for="name">Название шаблона</label>
+        <input type="text" name="name" id="name" required>
+    </div>
+    <div>
+        <label for="is_working_day">Рабочий день</label>
+        <input type="checkbox" name="is_working_day" id="is_working_day" value="1" checked>
+    </div>
+    <div id="working_hours" style="display: block;">
+        <div>
+            <label for="start_time">Начало рабочего времени</label>
+            <input type="time" name="start_time" id="start_time">
+        </div>
+        <div>
+            <label for="end_time">Конец рабочего времени</label>
+            <input type="time" name="end_time" id="end_time">
+        </div>
+        <div id="breaks">
+            <div class="break">
+                <label>Перерыв</label>
+                <input type="time" name="breaks[0][start_time]">
+                <input type="time" name="breaks[0][end_time]">
+            </div>
+        </div>
+        <button type="button" onclick="addBreak()">Добавить перерыв</button>
+    </div>
+    <button type="submit">Создать шаблон</button>
+</form>
+
+<script>
+    document.getElementById('is_working_day').addEventListener('change', function () {
+        document.getElementById('working_hours').style.display = this.checked ? 'block' : 'none';
+    });
+
+    let breakIndex = 1;
+    function addBreak() {
+        const breaksDiv = document.getElementById('breaks');
+        const newBreak = document.createElement('div');
+        newBreak.className = 'break';
+        newBreak.innerHTML = `
+                <label>Перерыв</label>
+                <input type="time" name="breaks[${breakIndex}][start_time]">
+                <input type="time" name="breaks[${breakIndex}][end_time]">
+            `;
+        breaksDiv.appendChild(newBreak);
+        breakIndex++;
+    }
+</script>
+</body>
+</html>
+
+
+========== File: resources/views/specialist/dashboard.blade.php ==========
+@extends('layouts.specialist')
+@section('title', 'Специалист - Дашборд - YourOrd')
+@section('content')
+    <div class="max-w-7xl mx-auto">
+        <h1 class="text-3xl font-bold mb-6 text-gray-800">Добро пожаловать, {{ $specialist->name ?? $specialist->email }}</h1>
+        <h2 class="text-2xl font-semibold mb-4 text-gray-700">Ваши проекты</h2>
+        <div class="mb-4">
+            <a href="{{ route('specialist.project.create') }}" class="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700">Создать проект</a>
+        </div>
+        <div class="bg-white shadow overflow-hidden sm:rounded-lg">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Название</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Описание</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Баланс</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Действия</th>
+                </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                @foreach ($projects as $project)
+                    <tr>
+                        <td class="px-6 py-4 whitespace-nowrap">{{ $project->name }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap">{{ $project->description ?? '-' }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap">{{ $project->balance }} руб.</td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <a href="{{ route('specialist.project', $project->slug) }}" class="text-indigo-600 hover:text-indigo-800">Просмотреть</a>
+                            @if ($project->specialists()->where('specialist_id', auth('specialist')->id())->first()->pivot->is_owner)
+                                <form action="{{ route('specialist.project.delete', $project->slug) }}" method="POST" class="inline">
+                                    @csrf
+                                    @method('DELETE')
+                                    <button type="submit" class="text-red-600 hover:text-red-800 ml-2">Удалить</button>
+                                </form>
+                            @endif
+                        </td>
+                    </tr>
+                @endforeach
+                </tbody>
+            </table>
+        </div>
+        <div class="mt-4">
+            {{ $projects->links('pagination::tailwind') }}
+        </div>
+    </div>
+@endsection
+
+
+========== File: resources/views/specialist/invitation/view.blade.php ==========
+@extends('layouts.specialist')
+@section('title', 'Приглашение в проект - YourOrd')
+@section('content')
+    <div class="max-w-md mx-auto mt-10">
+        <h1 class="text-2xl font-bold mb-6 text-gray-800">Приглашение в проект: {{ $invitation->project->name }}</h1>
+        <p class="mb-4">Вы приглашены в проект "{{ $invitation->project->name }}".</p>
+        <p class="mb-4">Права:</p>
+        <ul class="list-disc pl-5 mb-4">
+            @foreach ($invitation->permissions ?? [] as $permission)
+                <li>
+                    @if ($permission == 'manage_schedule')
+                        Управление расписанием
+                    @elseif ($permission == 'view_schedule')
+                        Просмотр расписания
+                    @elseif ($permission == 'manage_balance')
+                        Управление балансом
+                    @elseif ($permission == 'manage_specialists')
+                        Управление специалистами
+                    @elseif ($permission == 'confirm_bookings')
+                        Подтверждение записей
+                    @elseif ($permission == 'manual_bookings')
+                        Ручное добавление записей
+                    @elseif ($permission == 'manage_services')
+                        Управление услугами
+                    @endif
+                </li>
+            @endforeach
+        </ul>
+        <form method="POST" action="{{ route('specialist.invitation.accept', $invitation->token) }}">
+            @csrf
+            <button type="submit" class="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700">Принять</button>
+        </form>
+    </div>
+@endsection
+
+
+========== File: resources/views/specialist/project/balance.blade.php ==========
+@extends('layouts.specialist')
+@section('title', 'Пополнить баланс - ' . $project->name)
+@section('content')
+    <div class="max-w-md mx-auto mt-10">
+        <h1 class="text-2xl font-bold mb-6 text-gray-800">Пополнить баланс: {{ $project->name }}</h1>
+        <form method="POST" action="{{ route('specialist.project.balance', $project->slug) }}" class="space-y-4">
+            @csrf
+            <div>
+                <label for="amount" class="block text-sm font-medium text-gray-700">Сумма (руб.)</label>
+                <input type="number" name="amount" id="amount" value="{{ old('amount') }}" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm">
+                @error('amount')
+                <p class="text-red-600 text-sm mt-1">{{ $message }}</p>
+                @enderror
+            </div>
+            <button type="submit" class="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700">Пополнить</button>
+        </form>
+    </div>
+@endsection
+
+
+========== File: resources/views/specialist/project/create.blade.php ==========
+@extends('layouts.specialist')
+@section('title', 'Создать проект - YourOrd')
+@section('content')
+    <div class="max-w-md mx-auto mt-10">
+        <h1 class="text-2xl font-bold mb-6 text-gray-800">Создать проект</h1>
+        <form method="POST" action="{{ route('specialist.project.create') }}" class="space-y-4">
+            @csrf
+            <div>
+                <label for="name" class="block text-sm font-medium text-gray-700">Название</label>
+                <input type="text" name="name" id="name" value="{{ old('name') }}" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm">
+                @error('name')
+                <p class="text-red-600 text-sm mt-1">{{ $message }}</p>
+                @enderror
+            </div>
+            <div>
+                <label for="description" class="block text-sm font-medium text-gray-700">Описание</label>
+                <textarea name="description" id="description" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm">{{ old('description') }}</textarea>
+                @error('description')
+                <p class="text-red-600 text-sm mt-1">{{ $message }}</p>
+                @enderror
+            </div>
+            <button type="submit" class="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700">Создать</button>
+        </form>
+    </div>
+@endsection
+
+
+========== File: resources/views/specialist/project/edit.blade.php ==========
+@extends('layouts.specialist')
+@section('title', 'Редактировать проект - YourOrd')
+@section('content')
+    <div class="max-w-md mx-auto mt-10">
+        <h1 class="text-2xl font-bold mb-6 text-gray-800">Редактировать проект: {{ $project->name }}</h1>
+        <form method="POST" action="{{ route('specialist.project.edit', $project->slug) }}" class="space-y-4">
+            @csrf
+            @method('PUT')
+            <div>
+                <label for="name" class="block text-sm font-medium text-gray-700">Название</label>
+                <input type="text" name="name" id="name" value="{{ old('name', $project->name) }}" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm">
+                @error('name')
+                <p class="text-red-600 text-sm mt-1">{{ $message }}</p>
+                @enderror
+            </div>
+            <div>
+                <label for="description" class="block text-sm font-medium text-gray-700">Описание</label>
+                <textarea name="description" id="description" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm">{{ old('description', $project->description) }}</textarea>
+                @error('description')
+                <p class="text-red-600 text-sm mt-1">{{ $message }}</p>
+                @enderror
+            </div>
+            <button type="submit" class="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700">Сохранить</button>
+        </form>
+    </div>
+@endsection
+
+
+========== File: resources/views/specialist/project/invite.blade.php ==========
+@extends('layouts.specialist')
+@section('title', 'Пригласить специалиста - YourOrd')
+@section('content')
+    <div class="max-w-md mx-auto mt-10">
+        <h1 class="text-2xl font-bold mb-6 text-gray-800">Пригласить специалиста в {{ $project->name }}</h1>
+        <form method="POST" action="{{ route('specialist.project.invite', $project->slug) }}" class="space-y-4">
+            @csrf
+            <div>
+                <label for="email" class="block text-sm font-medium text-gray-700">Email специалиста</label>
+                <input type="email" name="email" id="email" value="{{ old('email') }}" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm">
+                @error('email')
+                <p class="text-red-600 text-sm mt-1">{{ $message }}</p>
+                @enderror
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700">Права</label>
+                <label><input type="checkbox" name="permissions[]" value="manage_schedule"> Управление расписанием</label>
+                <label><input type="checkbox" name="permissions[]" value="view_schedule"> Просмотр расписания</label>
+                <label><input type="checkbox" name="permissions[]" value="manage_balance"> Управление балансом</label>
+                <label><input type="checkbox" name="permissions[]" value="manage_specialists"> Управление специалистами</label>
+                <label><input type="checkbox" name="permissions[]" value="confirm_bookings"> Подтверждение записей</label>
+                <label><input type="checkbox" name="permissions[]" value="manual_bookings"> Ручное добавление записей</label>
+                <label><input type="checkbox" name="permissions[]" value="manage_services"> Управление услугами</label>
+            </div>
+            <button type="submit" class="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700">Пригласить</button>
+        </form>
+    </div>
+@endsection
+
+
+========== File: resources/views/specialist/project/permissions.blade.php ==========
+@extends('layouts.specialist')
+@section('title', 'Управление правами - ' . $project->name)
+@section('content')
+    <div class="max-w-7xl mx-auto">
+        <h1 class="text-3xl font-bold mb-6 text-gray-800">Управление правами для {{ $project->name }}</h1>
+        <form method="POST" action="{{ route('specialist.project.permissions', $project->slug) }}">
+            @csrf
+            @foreach ($project->specialists as $specialist)
+                @if (!$specialist->pivot->is_owner)
+                    <div class="mb-4">
+                        <h3 class="text-xl font-medium">{{ $specialist->name ?? $specialist->email }}</h3>
+                        <div class="space-y-2">
+                            <label><input type="checkbox" name="permissions[{{$specialist->id}}][]" value="manage_schedule" {{ in_array('manage_schedule', $specialist->pivot->permissions ?? []) ? 'checked' : '' }}> Управление расписанием</label>
+                            <label><input type="checkbox" name="permissions[{{$specialist->id}}][]" value="view_schedule" {{ in_array('view_schedule', $specialist->pivot->permissions ?? []) ? 'checked' : '' }}> Просмотр расписания</label>
+                            <label><input type="checkbox" name="permissions[{{$specialist->id}}][]" value="manage_balance" {{ in_array('manage_balance', $specialist->pivot->permissions ?? []) ? 'checked' : '' }}> Управление балансом</label>
+                            <label><input type="checkbox" name="permissions[{{$specialist->id}}][]" value="manage_specialists" {{ in_array('manage_specialists', $specialist->pivot->permissions ?? []) ? 'checked' : '' }}> Управление специалистами</label>
+                            <label><input type="checkbox" name="permissions[{{$specialist->id}}][]" value="confirm_bookings" {{ in_array('confirm_bookings', $specialist->pivot->permissions ?? []) ? 'checked' : '' }}> Подтверждение записей</label>
+                            <label><input type="checkbox" name="permissions[{{$specialist->id}}][]" value="manual_bookings" {{ in_array('manual_bookings', $specialist->pivot->permissions ?? []) ? 'checked' : '' }}> Ручное добавление записей</label>
+                            <label><input type="checkbox" name="permissions[{{$specialist->id}}][]" value="manage_services" {{ in_array('manage_services', $specialist->pivot->permissions ?? []) ? 'checked' : '' }}> Управление услугами</label>
+                        </div>
+                    </div>
+                @endif
+            @endforeach
+            <button type="submit" class="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700">Сохранить</button>
+        </form>
+    </div>
+@endsection
+
+
+========== File: resources/views/specialist/project.blade.php ==========
+@extends('layouts.specialist')
+@section('title', $project->name . ' - YourOrd')
+@section('content')
+    <div class="max-w-7xl mx-auto">
+        <h1 class="text-3xl font-bold mb-6 text-gray-800">{{ $project->name }}</h1>
+        <p class="mb-4">Баланс: {{ $project->balance }} руб.</p>
+        @if (auth('specialist')->user()->projects()->where('project_id', $project->id)->first()->pivot->is_owner)
+            <div class="mb-4 flex space-x-4">
+                <a href="{{ route('specialist.project.edit', $project->slug) }}" class="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700">Редактировать</a>
+                <a href="{{ route('specialist.project.invite', $project->slug) }}" class="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700">Пригласить специалиста</a>
+                <a href="{{ route('specialist.project.permissions', $project->slug) }}" class="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700">Управление правами</a>
+                <a href="{{ route('specialist.project.balance', $project->slug) }}" class="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700">Пополнить баланс</a>
+            </div>
+        @endif
+        <h2 class="text-2xl font-semibold mb-4 text-gray-700">Расписание на {{ \Carbon\Carbon::parse($date)->format('d.m.Y') }}</h2>
+        @if ($dailySchedule)
+            <div class="bg-white shadow overflow-hidden sm:rounded-lg">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Услуга</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Время</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Статус</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Действия</th>
+                    </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                    @foreach ($bookings as $booking)
+                        <tr>
+                            <td class="px-6 py-4 whitespace-nowrap">{{ $booking->service->name }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap">{{ $booking->start_time }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                    <span class="font-medium {{ $booking->status == 'confirmed' ? 'text-green-600' : ($booking->status == 'pending' ? 'text-yellow-600' : 'text-red-600') }}">
+                                        {{ $booking->status == 'pending' ? 'Ожидает' : ($booking->status == 'confirmed' ? 'Подтверждено' : 'Отменено') }}
+                                    </span>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                @if ($booking->status == 'pending' && auth('specialist')->user()->projects()->where('project_id', $project->id)->first()->pivot->permissions && in_array('confirm_bookings', auth('specialist')->user()->projects()->where('project_id', $project->id)->first()->pivot->permissions))
+                                    <form action="{{ route('specialist.project.confirm_booking', [$project->slug, $booking]) }}" method="POST" class="inline">
+                                        @csrf
+                                        <button type="submit" class="text-green-600 hover:text-green-800">Подтвердить</button>
+                                    </form>
+                                @endif
+                            </td>
+                        </tr>
+                    @endforeach
+                    </tbody>
+                </table>
+            </div>
+        @else
+            <p class="text-gray-600">Расписание на эту дату отсутствует.</p>
+        @endif
+        @if (auth('specialist')->user()->projects()->where('project_id', $project->id)->first()->pivot->permissions && in_array('manual_bookings', auth('specialist')->user()->projects()->where('project_id', $project->id)->first()->pivot->permissions))
+            <h2 class="text-2xl font-semibold mb-4 mt-6 text-gray-700">Добавить запись вручную</h2>
+            <form method="POST" action="{{ route('specialist.project.manual_booking', $project->slug) }}" class="space-y-4">
+                @csrf
+                <div>
+                    <label for="client_id" class="block text-sm font-medium text-gray-700">Клиент</label>
+                    <select name="client_id" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm">
+                        @foreach (\App\Models\Client::all() as $client)
+                            <option value="{{ $client->id }}">{{ $client->name ?? $client->email }}</option>
+                        @endforeach
+                    </select>
+                    @error('client_id')
+                    <p class="text-red-600 text-sm mt-1">{{ $message }}</p>
+                    @enderror
+                </div>
+                <div>
+                    <label for="service_id" class="block text-sm font-medium text-gray-700">Услуга</label>
+                    <select name="service_id" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm">
+                        @foreach ($project->services as $service)
+                            <option value="{{ $service->id }}">{{ $service->name }}</option>
+                        @endforeach
+                    </select>
+                    @error('service_id')
+                    <p class="text-red-600 text-sm mt-1">{{ $message }}</p>
+                    @enderror
+                </div>
+                <div>
+                    <label for="date" class="block text-sm font-medium text-gray-700">Дата</label>
+                    <input type="date" name="date" value="{{ old('date', $date) }}" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm">
+                    @error('date')
+                    <p class="text-red-600 text-sm mt-1">{{ $message }}</p>
+                    @enderror
+                </div>
+                <div>
+                    <label for="start_time" class="block text-sm font-medium text-gray-700">Время</label>
+                    <input type="time" name="start_time" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm">
+                    @error('start_time')
+                    <p class="text-red-600 text-sm mt-1">{{ $message }}</p>
+                    @enderror
+                </div>
+                <button type="submit" class="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700">Добавить</button>
+            </form>
+        @endif
+    </div>
+@endsection
+
+
+========== File: resources/views/specialist/projects.blade.php ==========
+@extends('layouts.specialist')
+@section('title', 'Проекты - YourOrd')
+@section('content')
+    <div class="max-w-7xl mx-auto">
+        <h1 class="text-3xl font-bold mb-6 text-gray-800">Мои проекты</h1>
+        <div class="mb-4">
+            <a href="{{ route('specialist.project.create') }}" class="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700">Создать проект</a>
+        </div>
+        <div class="bg-white shadow overflow-hidden sm:rounded-lg">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Название</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Описание</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Баланс</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Действия</th>
+                </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                @foreach ($projects as $project)
+                    <tr>
+                        <td class="px-6 py-4 whitespace-nowrap">{{ $project->name }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap">{{ $project->description ?? '-' }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap">{{ $project->balance }} руб.</td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <a href="{{ route('specialist.project', $project->slug) }}" class="text-indigo-600 hover:text-indigo-800">Просмотреть</a>
+                            @if ($project->specialists()->where('specialist_id', auth('specialist')->id())->first()->pivot->is_owner)
+                                <form action="{{ route('specialist.project.delete', $project->slug) }}" method="POST" class="inline">
+                                    @csrf
+                                    @method('DELETE')
+                                    <button type="submit" class="text-red-600 hover:text-red-800 ml-2">Удалить</button>
+                                </form>
+                            @endif
+                        </td>
+                    </tr>
+                @endforeach
+                </tbody>
+            </table>
+        </div>
+        <div class="mt-4">
+            {{ $projects->links('pagination::tailwind') }}
+        </div>
+    </div>
+@endsection
+
+
+========== File: resources/views/specialist/schedule.blade.php ==========
+@extends('layouts.specialist')
+@section('title', 'Расписание - YourOrd')
+@section('content')
+    <div class="max-w-7xl mx-auto">
+        <h1 class="text-3xl font-bold mb-6 text-gray-800">Расписание</h1>
+        <div class="bg-white shadow overflow-hidden sm:rounded-lg">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Проект</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Дата</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Время работы</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Перерывы</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Записи</th>
+                </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                @foreach ($schedules as $schedule)
+                    <tr>
+                        <td class="px-6 py-4 whitespace-nowrap">{{ $schedule->project->name }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap">{{ \Carbon\Carbon::parse($schedule->date)->format('d.m.Y') }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap">{{ $schedule->start_time }} - {{ $schedule->end_time }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            @foreach ($schedule->workBreaks as $break)
+                                {{ $break->start_time }} - {{ $break->end_time }}<br>
+                            @endforeach
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            @foreach ($schedule->bookings as $booking)
+                                {{ $booking->service->name }}: {{ $booking->start_time }} ({{ $booking->status == 'pending' ? 'Ожидает' : ($booking->status == 'confirmed' ? 'Подтверждено' : 'Отменено') }})<br>
+                            @endforeach
+                        </td>
+                    </tr>
+                @endforeach
+                </tbody>
+            </table>
+        </div>
+    </div>
+@endsection
+
+
+========== File: resources/views/specialist/schedules.blade.php ==========
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Расписание мастера - YourOrd</title>
+</head>
+<body>
+<h1>Расписание</h1>
+<a href="{{ route('master.dashboard') }}">Назад в кабинет</a>
+<a href="{{ route('master.schedule_templates') }}">Шаблоны расписания</a>
+<a href="{{ route('master.auth.logout') }}">Выйти</a>
+
+<h2>Рабочие слоты</h2>
+<table>
+    <thead>
+    <tr>
+        <th>Проект</th>
+        <th>Начало</th>
+        <th>Конец</th>
+        <th>Занят</th>
+    </tr>
+    </thead>
+    <tbody>
+    @foreach ($schedules as $schedule)
+        <tr>
+            <td>{{ $schedule->project->name }}</td>
+            <td>{{ $schedule->start_time->format('d.m.Y H:i') }}</td>
+            <td>{{ $schedule->end_time->format('d.m.Y H:i') }}</td>
+            <td>{{ $schedule->is_booked ? 'Да' : 'Нет' }}</td>
+        </tr>
+    @endforeach
+    </tbody>
+</table>
+
+<h2>Перерывы</h2>
+<table>
+    <thead>
+    <tr>
+        <th>Проект</th>
+        <th>Начало</th>
+        <th>Конец</th>
+    </tr>
+    </thead>
+    <tbody>
+    @foreach ($breaks as $break)
+        <tr>
+            <td>{{ $break->project->name }}</td>
+            <td>{{ $break->start_time->format('d.m.Y H:i') }}</td>
+            <td>{{ $break->end_time->format('d.m.Y H:i') }}</td>
+        </tr>
+    @endforeach
+    </tbody>
+</table>
+
+<h2>Выходные дни</h2>
+<table>
+    <thead>
+    <tr>
+        <th>Проект</th>
+        <th>Дата</th>
+        <th>Причина</th>
+    </tr>
+    </thead>
+    <tbody>
+    @foreach ($daysOff as $dayOff)
+        <tr>
+            <td>{{ $dayOff->project->name }}</td>
+            <td>{{ $dayOff->date->format('d.m.Y') }}</td>
+            <td>{{ $dayOff->reason ?? '-' }}</td>
+        </tr>
+    @endforeach
+    </tbody>
+</table>
+
+<h2>Добавить рабочий слот</h2>
+<form method="POST" action="{{ route('master.schedules.create') }}">
+    @csrf
+    <div>
+        <label for="project_id">Проект</label>
+        <select name="project_id" id="project_id" required>
+            @foreach (auth('master')->user()->projects as $project)
+                <option value="{{ $project->id }}">{{ $project->name }}</option>
+            @endforeach
+        </select>
+    </div>
+    <div>
+        <label for="start_time">Начало</label>
+        <input type="datetime-local" name="start_time" id="start_time" required>
+    </div>
+    <div>
+        <label for="end_time">Конец</label>
+        <input type="datetime-local" name="end_time" id="end_time" required>
+    </div>
+    <button type="submit">Добавить</button>
+    @error('date')
+    <p style="color: red;">{{ $message }}</p>
+    @enderror
+</form>
+
+<h2>Добавить перерыв</h2>
+<form method="POST" action="{{ route('master.breaks.create') }}">
+    @csrf
+    <div>
+        <label for="project_id">Проект</label>
+        <select name="project_id" id="project_id" required>
+            @foreach (auth('master')->user()->projects as $project)
+                <option value="{{ $project->id }}">{{ $project->name }}</option>
+            @endforeach
+        </select>
+    </div>
+    <div>
+        <label for="start_time">Начало</label>
+        <input type="datetime-local" name="start_time" id="start_time" required>
+    </div>
+    <div>
+        <label for="end_time">Конец</label>
+        <input type="datetime-local" name="end_time" id="end_time" required>
+    </div>
+    <button type="submit">Добавить</button>
+    @error('date')
+    <p style="color: red;">{{ $message }}</p>
+    @enderror
+</form>
+
+<h2>Добавить выходной день</h2>
+<form method="POST" action="{{ route('master.days-off.create') }}">
+    @csrf
+    <div>
+        <label for="project_id">Проект</label>
+        <select name="project_id" id="project_id" required>
+            @foreach (auth('master')->user()->projects as $project)
+                <option value="{{ $project->id }}">{{ $project->name }}</option>
+            @endforeach
+        </select>
+    </div>
+    <div>
+        <label for="date">Дата</label>
+        <input type="date" name="date" id="date" required>
+    </div>
+    <div>
+        <label for="reason">Причина</label>
+        <input type="text" name="reason" id="reason">
+    </div>
+    <button type="submit">Добавить</button>
+    @error('date')
+    <p style="color: red;">{{ $message }}</p>
+    @enderror
+</form>
+</body>
+</html>
+
+
+========== File: resources/views/specialist/schedule_templates.blade.php ==========
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Шаблоны расписания - YourOrd</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+<div class="container mt-5">
+    <h1>Ваши шаблоны расписания</h1>
+    <nav class="nav mb-3">
+        <a class="nav-link" href="{{ route('master.dashboard') }}">Назад в кабинет</a>
+        <a class="nav-link" href="{{ route('master.projects') }}">Проекты</a>
+        <a class="nav-link" href="{{ route('master.categories') }}">Категории</a>
+        <a class="nav-link" href="{{ route('master.services') }}">Услуги</a>
+        <a class="nav-link" href="{{ route('master.daily_schedules') }}">Расписание</a>
+        <a class="nav-link" href="{{ route('master.bookings') }}">Записи</a>
+        <a class="nav-link" href="{{ route('master.blacklist') }}">Черный список</a>
+        <a class="nav-link" href="{{ route('master.auth.logout') }}">Выйти</a>
+    </nav>
+
+    <h2>Список шаблонов</h2>
+    <table class="table table-striped">
+        <thead>
+        <tr>
+            <th>Проект</th>
+            <th>Название</th>
+            <th>Рабочий день</th>
+            <th>Время</th>
+            <th>Перерывы</th>
+        </tr>
+        </thead>
+        <tbody>
+        @foreach ($templates as $template)
+            <tr>
+                <td>{{ $template->project->name }}</td>
+                <td>{{ $template->name }}</td>
+                <td>{{ $template->is_working_day ? 'Да' : 'Нет' }}</td>
+                <td>{{ $template->is_working_day ? ($template->start_time . ' - ' . $template->end_time) : '-' }}</td>
+                <td>
+                    @foreach ($template->breaks as $break)
+                        {{ $break->start_time }} - {{ $break->end_time }}<br>
+                    @endforeach
+                </td>
+            </tr>
+        @endforeach
+        </tbody>
+    </table>
+
+    <h2>Добавить шаблон расписания</h2>
+    <form method="POST" action="{{ route('master.daily_schedule_templates.create') }}">
+        @csrf
+        <div class="mb-3">
+            <label for="project_id" class="form-label">Проект</label>
+            <select name="project_id" id="project_id" class="form-control" required>
+                @foreach (App\Models\Project::where('master_id', Auth::guard('master')->id())->get() as $project)
+                    <option value="{{ $project->id }}">{{ $project->name }}</option>
+                @endforeach
+            </select>
+            @error('project_id')
+            <div class="text-danger">{{ $message }}</div>
+            @enderror
+        </div>
+        <div class="mb-3">
+            <label for="name" class="form-label">Название шаблона</label>
+            <input type="text" name="name" id="name" class="form-control" required>
+            @error('name')
+            <div class="text-danger">{{ $message }}</div>
+            @enderror
+        </div>
+        <div class="mb-3 form-check">
+            <input type="checkbox" name="is_working_day" id="is_working_day" class="form-check-input" value="1" checked>
+            <label for="is_working_day" class="form-check-label">Рабочий день</label>
+        </div>
+        <div id="working-hours">
+            <div class="mb-3">
+                <label for="start_time" class="form-label">Время начала</label>
+                <input type="time" name="start_time" id="start_time" class="form-control" required>
+                @error('start_time')
+                <div class="text-danger">{{ $message }}</div>
+                @enderror
+            </div>
+            <div class="mb-3">
+                <label for="end_time" class="form-label">Время окончания</label>
+                <input type="time" name="end_time" id="end_time" class="form-control" required>
+                @error('end_time')
+                <div class="text-danger">{{ $message }}</div>
+                @enderror
+            </div>
+            <div id="breaks-container">
+                <h3>Перерывы</h3>
+                <div class="break-row">
+                    <input type="time" name="breaks[0][start_time]" class="form-control d-inline-block w-auto">
+                    <input type="time" name="breaks[0][end_time]" class="form-control d-inline-block w-auto">
+                    <button type="button" class="btn btn-danger btn-sm remove-break">Удалить</button>
+                </div>
+            </div>
+            <button type="button" class="btn btn-secondary mt-2" id="add-break">Добавить перерыв</button>
+        </div>
+        <button type="submit" class="btn btn-primary mt-3">Сохранить шаблон</button>
+    </form>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    document.getElementById('is_working_day').addEventListener('change', function () {
+        document.getElementById('working-hours').style.display = this.checked ? 'block' : 'none';
+    });
+
+    let breakIndex = 1;
+    document.getElementById('add-break').addEventListener('click', function () {
+        const container = document.getElementById('breaks-container');
+        const newBreak = document.createElement('div');
+        newBreak.className = 'break-row';
+        newBreak.innerHTML = `
+                <input type="time" name="breaks[${breakIndex}][start_time]" class="form-control d-inline-block w-auto" required>
+                <input type="time" name="breaks[${breakIndex}][end_time]" class="form-control d-inline-block w-auto" required>
+                <button type="button" class="btn btn-danger btn-sm remove-break">Удалить</button>
+            `;
+        container.appendChild(newBreak);
+        breakIndex++;
+    });
+
+    document.addEventListener('click', function (e) {
+        if (e.target.classList.contains('remove-break')) {
+            e.target.parentElement.remove();
+        }
+    });
+</script>
+</body>
+</html>
+
+
+========== File: resources/views/specialist/services-modals.blade.php ==========
+<!-- Модальное окно добавления услуги -->
+<div id="newServiceModal" class="hidden fixed z-10 inset-0 overflow-y-auto">
+    <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+        <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"
+             onclick="document.getElementById('newServiceModal').classList.add('hidden')"></div>
+        <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+        <div class="inline-block align-bottom bg-white rounded-lg px-4 pt-5 pb-4 text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full sm:p-6">
+            <div>
+                <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">
+                    Добавление новой услуги
+                </h3>
+                <form method="POST" action="{{ route('master.services.create') }}">
+                    @csrf
+                    <div class="space-y-4">
+                        <div>
+                            <label for="category_id" class="block text-sm font-medium text-gray-700">Категория</label>
+                            <select id="category_id" name="category_id" required
+                                class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
+                                @foreach($categories as $category)
+                                    <option value="{{ $category->id }}">{{ $category->name }} ({{ $category->project->name }})</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div>
+                            <label for="name" class="block text-sm font-medium text-gray-700">Название услуги</label>
+                            <input type="text" name="name" id="name" required
+                                class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label for="duration" class="block text-sm font-medium text-gray-700">Длительность (минут)</label>
+                                <input type="number" name="duration" id="duration" min="1" required
+                                    class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                            </div>
+                            <div>
+                                <label for="price" class="block text-sm font-medium text-gray-700">Стоимость (руб.)</label>
+                                <input type="number" name="price" id="price" min="0" step="100" required
+                                    class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                            </div>
+                        </div>
+                        <div>
+                            <label for="description" class="block text-sm font-medium text-gray-700">Описание (необязательно)</label>
+                            <textarea name="description" id="description" rows="3"
+                                class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"></textarea>
+                        </div>
+                    </div>
+                    <div class="mt-5 sm:mt-6 sm:grid sm:grid-cols-2 sm:gap-3 sm:grid-flow-row-dense">
+                        <button type="submit" class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-indigo-600 text-base font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:col-start-2 sm:text-sm">
+                            Создать услугу
+                        </button>
+                        <button type="button"
+                            onclick="document.getElementById('newServiceModal').classList.add('hidden')"
+                            class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:col-start-1 sm:text-sm">
+                            Отмена
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Модальное окно редактирования услуги -->
+<div id="editServiceModal" class="hidden fixed z-10 inset-0 overflow-y-auto">
+    <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+        <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"
+             onclick="document.getElementById('editServiceModal').classList.add('hidden')"></div>
+        <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+        <div class="inline-block align-bottom bg-white rounded-lg px-4 pt-5 pb-4 text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full sm:p-6">
+            <div>
+                <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">
+                    Редактирование услуги
+                </h3>
+                <form id="editServiceForm" method="POST" action="">
+                    @csrf
+                    @method('PUT')
+                    <div class="space-y-4">
+                        <div>
+                            <label for="edit_category_id" class="block text-sm font-medium text-gray-700">Категория</label>
+                            <select id="edit_category_id" name="category_id" required
+                                class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
+                                @foreach($categories as $category)
+                                    <option value="{{ $category->id }}">{{ $category->name }} ({{ $category->project->name }})</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div>
+                            <label for="edit_name" class="block text-sm font-medium text-gray-700">Название услуги</label>
+                            <input type="text" name="name" id="edit_name" required
+                                class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label for="edit_duration" class="block text-sm font-medium text-gray-700">Длительность (минут)</label>
+                                <input type="number" name="duration" id="edit_duration" min="1" required
+                                    class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                            </div>
+                            <div>
+                                <label for="edit_price" class="block text-sm font-medium text-gray-700">Стоимость (руб.)</label>
+                                <input type="number" name="price" id="edit_price" min="0" step="1" required
+                                    class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                            </div>
+                        </div>
+                        <div>
+                            <label for="edit_description" class="block text-sm font-medium text-gray-700">Описание (необязательно)</label>
+                            <textarea name="description" id="edit_description" rows="3"
+                                class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"></textarea>
+                        </div>
+                    </div>
+                    <div class="mt-5 sm:mt-6 sm:grid sm:grid-cols-2 sm:gap-3 sm:grid-flow-row-dense">
+                        <button type="submit" class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-indigo-600 text-base font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:col-start-2 sm:text-sm">
+                            Сохранить изменения
+                        </button>
+                        <button type="button"
+                            onclick="document.getElementById('editServiceModal').classList.add('hidden')"
+                            class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:col-start-1 sm:text-sm">
+                            Отмена
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Функция открытия модального окна редактирования услуги
+    function openEditServiceModal(id, name, categoryId, duration, price, description) {
+        document.getElementById('editServiceForm').action = `/master/services/${id}`;
+        document.getElementById('edit_name').value = name;
+        document.getElementById('edit_category_id').value = categoryId;
+        document.getElementById('edit_duration').value = duration;
+        document.getElementById('edit_price').value = price;
+        document.getElementById('edit_description').value = description || '';
+        document.getElementById('editServiceModal').classList.remove('hidden');
+    }
+</script>
+
+
+========== File: resources/views/specialist/services.blade.php ==========
+@extends('layouts.master')
+
+@section('title', 'Услуги - YourOrd')
+
+@section('header', 'Услуги мастера')
+
+@push('styles')
+    <style>
+        .modal {
+            transition: opacity 0.3s ease-in-out, visibility 0.3s ease-in-out;
+            z-index: 9999;
+        }
+        .modal-content {
+            transform: scale(0.95);
+            transition: transform 0.2s ease-in-out;
+        }
+        .modal:not(.hidden) .modal-content {
+            transform: scale(1);
+        }
+    </style>
+@endpush
+
+@section('content')
+    <div class="container mx-auto px-4 py-8">
+        <h2 class="text-2xl font-bold text-gray-800 mb-6">Ваши услуги</h2>
+
+        <!-- Форма для создания новой услуги -->
+        <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+            <form method="POST" action="{{ route('master.services.create') }}">
+                @csrf
+                <div class="mb-4">
+                    <label for="project_id" class="block text-sm font-medium text-gray-700">Проект</label>
+                    <select name="project_id" id="project_id" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" required>
+                        @foreach (App\Models\Project::where('master_id', Auth::guard('master')->id())->get() as $project)
+                            <option value="{{ $project->id }}">{{ $project->name }}</option>
+                        @endforeach
+                    </select>
+                    @error('project_id')
+                    <div class="text-red-600 text-sm mt-1">{{ $message }}</div>
+                    @enderror
+                </div>
+                <div class="mb-4">
+                    <label for="category_id" class="block text-sm font-medium text-gray-700">Категория</label>
+                    <select name="category_id" id="category_id" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" required>
+                        @foreach (App\Models\Category::whereHas('project', function($query) {
+                            $query->where('master_id', Auth::guard('master')->id());
+                        })->get() as $category)
+                            <option value="{{ $category->id }}">{{ $category->name }}</option>
+                        @endforeach
+                    </select>
+                    @error('category_id')
+                    <div class="text-red-600 text-sm mt-1">{{ $message }}</div>
+                    @enderror
+                </div>
+                <div class="mb-4">
+                    <label for="name" class="block text-sm font-medium text-gray-700">Название услуги</label>
+                    <input type="text" name="name" id="name" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" required>
+                    @error('name')
+                    <div class="text-red-600 text-sm mt-1">{{ $message }}</div>
+                    @enderror
+                </div>
+                <div class="mb-4">
+                    <label for="duration" class="block text-sm font-medium text-gray-700">Длительность (минуты)</label>
+                    <input type="number" name="duration" id="duration" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" min="1" required>
+                    @error('duration')
+                    <div class="text-red-600 text-sm mt-1">{{ $message }}</div>
+                    @enderror
+                </div>
+                <div class="mb-4">
+                    <label for="price" class="block text-sm font-medium text-gray-700">Цена (₽)</label>
+                    <input type="number" name="price" id="price" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" min="0" step="0.01" required>
+                    @error('price')
+                    <div class="text-red-600 text-sm mt-1">{{ $message }}</div>
+                    @enderror
+                </div>
+                <div class="flex justify-end">
+                    <button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">Добавить услугу</button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Таблица услуг -->
+        <div class="bg-white rounded-lg shadow-lg p-6">
+            @if ($services->isEmpty())
+                <p class="text-gray-600">Услуги отсутствуют.</p>
+            @else
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Название</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Проект</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Категория</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Длительность</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Цена</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Действия</th>
+                    </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                    @foreach ($services as $service)
+                        <tr>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ $service->name }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ $service->project->name }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ $service->category->name }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ $service->duration }} мин</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ number_format($service->price, 2) }} ₽</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                <button type="button" class="edit-service text-indigo-600 hover:text-indigo-800 mr-2" data-id="{{ $service->id }}" data-project-id="{{ $service->project_id }}" data-category-id="{{ $service->category_id }}" data-name="{{ $service->name }}" data-duration="{{ $service->duration }}" data-price="{{ $service->price }}">Редактировать</button>
+                                <form action="{{ route('master.services.destroy', $service->id) }}" method="POST" class="inline" onsubmit="return confirm('Вы уверены, что хотите удалить услугу?');">
+                                    @csrf
+                                    @method('DELETE')
+                                    <button type="submit" class="text-red-600 hover:text-red-800">Удалить</button>
+                                </form>
+                            </td>
+                        </tr>
+                    @endforeach
+                    </tbody>
+                </table>
+                <!-- Пагинация -->
+                <div class="mt-4">
+                    {{ $services->links() }}
+                </div>
+            @endif
+        </div>
+
+        <!-- Модальное окно для редактирования услуги -->
+        <div class="modal fade fixed top-0 left-0 hidden w-full h-full bg-black bg-opacity-50 flex items-center justify-center" id="editServiceModal" tabindex="-1">
+            <div class="modal-content bg-white rounded-lg w-full max-w-md p-6">
+                <form id="editServiceForm" method="POST" action="">
+                    @csrf
+                    @method('PUT')
+                    <input type="hidden" name="service_id" id="edit_service_id">
+                    <div class="mb-4">
+                        <label for="edit_project_id" class="block text-sm font-medium text-gray-700">Проект</label>
+                        <select name="project_id" id="edit_project_id" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" required>
+                            @foreach (App\Models\Project::where('master_id', Auth::guard('master')->id())->get() as $project)
+                                <option value="{{ $project->id }}">{{ $project->name }}</option>
+                            @endforeach
+                        </select>
+                        @error('project_id')
+                        <div class="text-red-600 text-sm mt-1">{{ $message }}</div>
+                        @enderror
+                    </div>
+                    <div class="mb-4">
+                        <label for="edit_category_id" class="block text-sm font-medium text-gray-700">Категория</label>
+                        <select name="category_id" id="edit_category_id" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" required>
+                            @foreach (App\Models\Category::whereHas('project', function($query) {
+                                $query->where('master_id', Auth::guard('master')->id());
+                            })->get() as $category)
+                                <option value="{{ $category->id }}">{{ $category->name }}</option>
+                            @endforeach
+                        </select>
+                        @error('category_id')
+                        <div class="text-red-600 text-sm mt-1">{{ $message }}</div>
+                        @enderror
+                    </div>
+                    <div class="mb-4">
+                        <label for="edit_name" class="block text-sm font-medium text-gray-700">Название услуги</label>
+                        <input type="text" name="name" id="edit_name" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" required>
+                        @error('name')
+                        <div class="text-red-600 text-sm mt-1">{{ $message }}</div>
+                        @enderror
+                    </div>
+                    <div class="mb-4">
+                        <label for="edit_duration" class="block text-sm font-medium text-gray-700">Длительность (минуты)</label>
+                        <input type="number" name="duration" id="edit_duration" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" min="1" required>
+                        @error('duration')
+                        <div class="text-red-600 text-sm mt-1">{{ $message }}</div>
+                        @enderror
+                    </div>
+                    <div class="mb-4">
+                        <label for="edit_price" class="block text-sm font-medium text-gray-700">Цена (₽)</label>
+                        <input type="number" name="price" id="edit_price" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" min="0" step="0.01" required>
+                        @error('price')
+                        <div class="text-red-600 text-sm mt-1">{{ $message }}</div>
+                        @enderror
+                    </div>
+                    <div class="flex justify-end gap-2">
+                        <button type="button" id="cancel_edit_modal" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300">Отменить</button>
+                        <button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">Сохранить</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    @push('scripts')
+        <script>
+            document.addEventListener('DOMContentLoaded', function () {
+                const modal = document.getElementById('editServiceModal');
+                const form = document.getElementById('editServiceForm');
+                const cancelButton = document.getElementById('cancel_edit_modal');
+
+                document.querySelectorAll('.edit-service').forEach(button => {
+                    button.addEventListener('click', function () {
+                        const serviceId = this.getAttribute('data-id');
+                        form.action = '{{ route("master.services.update", ":id") }}'.replace(':id', serviceId);
+                        document.getElementById('edit_service_id').value = serviceId;
+                        document.getElementById('edit_project_id').value = this.getAttribute('data-project-id');
+                        document.getElementById('edit_category_id').value = this.getAttribute('data-category-id');
+                        document.getElementById('edit_name').value = this.getAttribute('data-name');
+                        document.getElementById('edit_duration').value = this.getAttribute('data-duration');
+                        document.getElementById('edit_price').value = this.getAttribute('data-price');
+                        modal.classList.remove('hidden');
+                    });
+                });
+
+                cancelButton.addEventListener('click', function () {
+                    modal.classList.add('hidden');
+                });
+
+                form.addEventListener('submit', function (e) {
+                    console.log('Edit form data:', new FormData(form));
+                });
+            });
+        </script>
+    @endpush
+@endsection
+
+
+========== File: resources/views/vendor/pagination/bootstrap-4.blade.php ==========
+@if ($paginator->hasPages())
+    <nav>
+        <ul class="pagination">
+            {{-- Previous Page Link --}}
+            @if ($paginator->onFirstPage())
+                <li class="page-item disabled" aria-disabled="true" aria-label="@lang('pagination.previous')">
+                    <span class="page-link" aria-hidden="true">&lsaquo;</span>
+                </li>
+            @else
+                <li class="page-item">
+                    <a class="page-link" href="{{ $paginator->previousPageUrl() }}" rel="prev" aria-label="@lang('pagination.previous')">&lsaquo;</a>
+                </li>
+            @endif
+
+            {{-- Pagination Elements --}}
+            @foreach ($elements as $element)
+                {{-- "Three Dots" Separator --}}
+                @if (is_string($element))
+                    <li class="page-item disabled" aria-disabled="true"><span class="page-link">{{ $element }}</span></li>
+                @endif
+
+                {{-- Array Of Links --}}
+                @if (is_array($element))
+                    @foreach ($element as $page => $url)
+                        @if ($page == $paginator->currentPage())
+                            <li class="page-item active" aria-current="page"><span class="page-link">{{ $page }}</span></li>
+                        @else
+                            <li class="page-item"><a class="page-link" href="{{ $url }}">{{ $page }}</a></li>
+                        @endif
+                    @endforeach
+                @endif
+            @endforeach
+
+            {{-- Next Page Link --}}
+            @if ($paginator->hasMorePages())
+                <li class="page-item">
+                    <a class="page-link" href="{{ $paginator->nextPageUrl() }}" rel="next" aria-label="@lang('pagination.next')">&rsaquo;</a>
+                </li>
+            @else
+                <li class="page-item disabled" aria-disabled="true" aria-label="@lang('pagination.next')">
+                    <span class="page-link" aria-hidden="true">&rsaquo;</span>
+                </li>
+            @endif
+        </ul>
+    </nav>
+@endif
+
+
+========== File: resources/views/vendor/pagination/bootstrap-5.blade.php ==========
+@if ($paginator->hasPages())
+    <nav class="d-flex justify-items-center justify-content-between">
+        <div class="d-flex justify-content-between flex-fill d-sm-none">
+            <ul class="pagination">
+                {{-- Previous Page Link --}}
+                @if ($paginator->onFirstPage())
+                    <li class="page-item disabled" aria-disabled="true">
+                        <span class="page-link">@lang('pagination.previous')</span>
+                    </li>
+                @else
+                    <li class="page-item">
+                        <a class="page-link" href="{{ $paginator->previousPageUrl() }}" rel="prev">@lang('pagination.previous')</a>
+                    </li>
+                @endif
+
+                {{-- Next Page Link --}}
+                @if ($paginator->hasMorePages())
+                    <li class="page-item">
+                        <a class="page-link" href="{{ $paginator->nextPageUrl() }}" rel="next">@lang('pagination.next')</a>
+                    </li>
+                @else
+                    <li class="page-item disabled" aria-disabled="true">
+                        <span class="page-link">@lang('pagination.next')</span>
+                    </li>
+                @endif
+            </ul>
+        </div>
+
+        <div class="d-none flex-sm-fill d-sm-flex align-items-sm-center justify-content-sm-between">
+            <div>
+                <p class="small text-muted">
+                    {!! __('Showing') !!}
+                    <span class="fw-semibold">{{ $paginator->firstItem() }}</span>
+                    {!! __('to') !!}
+                    <span class="fw-semibold">{{ $paginator->lastItem() }}</span>
+                    {!! __('of') !!}
+                    <span class="fw-semibold">{{ $paginator->total() }}</span>
+                    {!! __('results') !!}
+                </p>
+            </div>
+
+            <div>
+                <ul class="pagination">
+                    {{-- Previous Page Link --}}
+                    @if ($paginator->onFirstPage())
+                        <li class="page-item disabled" aria-disabled="true" aria-label="@lang('pagination.previous')">
+                            <span class="page-link" aria-hidden="true">&lsaquo;</span>
+                        </li>
+                    @else
+                        <li class="page-item">
+                            <a class="page-link" href="{{ $paginator->previousPageUrl() }}" rel="prev" aria-label="@lang('pagination.previous')">&lsaquo;</a>
+                        </li>
+                    @endif
+
+                    {{-- Pagination Elements --}}
+                    @foreach ($elements as $element)
+                        {{-- "Three Dots" Separator --}}
+                        @if (is_string($element))
+                            <li class="page-item disabled" aria-disabled="true"><span class="page-link">{{ $element }}</span></li>
+                        @endif
+
+                        {{-- Array Of Links --}}
+                        @if (is_array($element))
+                            @foreach ($element as $page => $url)
+                                @if ($page == $paginator->currentPage())
+                                    <li class="page-item active" aria-current="page"><span class="page-link">{{ $page }}</span></li>
+                                @else
+                                    <li class="page-item"><a class="page-link" href="{{ $url }}">{{ $page }}</a></li>
+                                @endif
+                            @endforeach
+                        @endif
+                    @endforeach
+
+                    {{-- Next Page Link --}}
+                    @if ($paginator->hasMorePages())
+                        <li class="page-item">
+                            <a class="page-link" href="{{ $paginator->nextPageUrl() }}" rel="next" aria-label="@lang('pagination.next')">&rsaquo;</a>
+                        </li>
+                    @else
+                        <li class="page-item disabled" aria-disabled="true" aria-label="@lang('pagination.next')">
+                            <span class="page-link" aria-hidden="true">&rsaquo;</span>
+                        </li>
+                    @endif
+                </ul>
+            </div>
+        </div>
+    </nav>
+@endif
+
+
+========== File: resources/views/vendor/pagination/default.blade.php ==========
+@if ($paginator->hasPages())
+    <nav>
+        <ul class="pagination">
+            {{-- Previous Page Link --}}
+            @if ($paginator->onFirstPage())
+                <li class="disabled" aria-disabled="true" aria-label="@lang('pagination.previous')">
+                    <span aria-hidden="true">&lsaquo;</span>
+                </li>
+            @else
+                <li>
+                    <a href="{{ $paginator->previousPageUrl() }}" rel="prev" aria-label="@lang('pagination.previous')">&lsaquo;</a>
+                </li>
+            @endif
+
+            {{-- Pagination Elements --}}
+            @foreach ($elements as $element)
+                {{-- "Three Dots" Separator --}}
+                @if (is_string($element))
+                    <li class="disabled" aria-disabled="true"><span>{{ $element }}</span></li>
+                @endif
+
+                {{-- Array Of Links --}}
+                @if (is_array($element))
+                    @foreach ($element as $page => $url)
+                        @if ($page == $paginator->currentPage())
+                            <li class="active" aria-current="page"><span>{{ $page }}</span></li>
+                        @else
+                            <li><a href="{{ $url }}">{{ $page }}</a></li>
+                        @endif
+                    @endforeach
+                @endif
+            @endforeach
+
+            {{-- Next Page Link --}}
+            @if ($paginator->hasMorePages())
+                <li>
+                    <a href="{{ $paginator->nextPageUrl() }}" rel="next" aria-label="@lang('pagination.next')">&rsaquo;</a>
+                </li>
+            @else
+                <li class="disabled" aria-disabled="true" aria-label="@lang('pagination.next')">
+                    <span aria-hidden="true">&rsaquo;</span>
+                </li>
+            @endif
+        </ul>
+    </nav>
+@endif
+
+
+========== File: resources/views/vendor/pagination/semantic-ui.blade.php ==========
+@if ($paginator->hasPages())
+    <div class="ui pagination menu" role="navigation">
+        {{-- Previous Page Link --}}
+        @if ($paginator->onFirstPage())
+            <a class="icon item disabled" aria-disabled="true" aria-label="@lang('pagination.previous')"> <i class="left chevron icon"></i> </a>
+        @else
+            <a class="icon item" href="{{ $paginator->previousPageUrl() }}" rel="prev" aria-label="@lang('pagination.previous')"> <i class="left chevron icon"></i> </a>
+        @endif
+
+        {{-- Pagination Elements --}}
+        @foreach ($elements as $element)
+            {{-- "Three Dots" Separator --}}
+            @if (is_string($element))
+                <a class="icon item disabled" aria-disabled="true">{{ $element }}</a>
+            @endif
+
+            {{-- Array Of Links --}}
+            @if (is_array($element))
+                @foreach ($element as $page => $url)
+                    @if ($page == $paginator->currentPage())
+                        <a class="item active" href="{{ $url }}" aria-current="page">{{ $page }}</a>
+                    @else
+                        <a class="item" href="{{ $url }}">{{ $page }}</a>
+                    @endif
+                @endforeach
+            @endif
+        @endforeach
+
+        {{-- Next Page Link --}}
+        @if ($paginator->hasMorePages())
+            <a class="icon item" href="{{ $paginator->nextPageUrl() }}" rel="next" aria-label="@lang('pagination.next')"> <i class="right chevron icon"></i> </a>
+        @else
+            <a class="icon item disabled" aria-disabled="true" aria-label="@lang('pagination.next')"> <i class="right chevron icon"></i> </a>
+        @endif
+    </div>
+@endif
+
+
+========== File: resources/views/vendor/pagination/simple-bootstrap-4.blade.php ==========
+@if ($paginator->hasPages())
+    <nav>
+        <ul class="pagination">
+            {{-- Previous Page Link --}}
+            @if ($paginator->onFirstPage())
+                <li class="page-item disabled" aria-disabled="true">
+                    <span class="page-link">@lang('pagination.previous')</span>
+                </li>
+            @else
+                <li class="page-item">
+                    <a class="page-link" href="{{ $paginator->previousPageUrl() }}" rel="prev">@lang('pagination.previous')</a>
+                </li>
+            @endif
+
+            {{-- Next Page Link --}}
+            @if ($paginator->hasMorePages())
+                <li class="page-item">
+                    <a class="page-link" href="{{ $paginator->nextPageUrl() }}" rel="next">@lang('pagination.next')</a>
+                </li>
+            @else
+                <li class="page-item disabled" aria-disabled="true">
+                    <span class="page-link">@lang('pagination.next')</span>
+                </li>
+            @endif
+        </ul>
+    </nav>
+@endif
+
+
+========== File: resources/views/vendor/pagination/simple-bootstrap-5.blade.php ==========
+@if ($paginator->hasPages())
+    <nav role="navigation" aria-label="{!! __('Pagination Navigation') !!}">
+        <ul class="pagination">
+            {{-- Previous Page Link --}}
+            @if ($paginator->onFirstPage())
+                <li class="page-item disabled" aria-disabled="true">
+                    <span class="page-link">{!! __('pagination.previous') !!}</span>
+                </li>
+            @else
+                <li class="page-item">
+                    <a class="page-link" href="{{ $paginator->previousPageUrl() }}" rel="prev">
+                        {!! __('pagination.previous') !!}
+                    </a>
+                </li>
+            @endif
+
+            {{-- Next Page Link --}}
+            @if ($paginator->hasMorePages())
+                <li class="page-item">
+                    <a class="page-link" href="{{ $paginator->nextPageUrl() }}" rel="next">{!! __('pagination.next') !!}</a>
+                </li>
+            @else
+                <li class="page-item disabled" aria-disabled="true">
+                    <span class="page-link">{!! __('pagination.next') !!}</span>
+                </li>
+            @endif
+        </ul>
+    </nav>
+@endif
+
+
+========== File: resources/views/vendor/pagination/simple-default.blade.php ==========
+@if ($paginator->hasPages())
+    <nav>
+        <ul class="pagination">
+            {{-- Previous Page Link --}}
+            @if ($paginator->onFirstPage())
+                <li class="disabled" aria-disabled="true"><span>@lang('pagination.previous')</span></li>
+            @else
+                <li><a href="{{ $paginator->previousPageUrl() }}" rel="prev">@lang('pagination.previous')</a></li>
+            @endif
+
+            {{-- Next Page Link --}}
+            @if ($paginator->hasMorePages())
+                <li><a href="{{ $paginator->nextPageUrl() }}" rel="next">@lang('pagination.next')</a></li>
+            @else
+                <li class="disabled" aria-disabled="true"><span>@lang('pagination.next')</span></li>
+            @endif
+        </ul>
+    </nav>
+@endif
+
+
+========== File: resources/views/vendor/pagination/simple-tailwind.blade.php ==========
+@if ($paginator->hasPages())
+    <nav role="navigation" aria-label="{!! __('Pagination Navigation') !!}" class="flex justify-between">
+        {{-- Previous Page Link --}}
+        @if ($paginator->onFirstPage())
+            <span class="relative inline-flex items-center px-4 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 cursor-default leading-5 rounded-md dark:text-gray-600 dark:bg-gray-800 dark:border-gray-600">
+                {!! __('pagination.previous') !!}
+            </span>
+        @else
+            <a href="{{ $paginator->previousPageUrl() }}" rel="prev" class="relative inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 leading-5 rounded-md hover:text-gray-500 focus:outline-none focus:ring ring-gray-300 focus:border-blue-300 active:bg-gray-100 active:text-gray-700 transition ease-in-out duration-150 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-300 dark:focus:border-blue-700 dark:active:bg-gray-700 dark:active:text-gray-300">
+                {!! __('pagination.previous') !!}
+            </a>
+        @endif
+
+        {{-- Next Page Link --}}
+        @if ($paginator->hasMorePages())
+            <a href="{{ $paginator->nextPageUrl() }}" rel="next" class="relative inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 leading-5 rounded-md hover:text-gray-500 focus:outline-none focus:ring ring-gray-300 focus:border-blue-300 active:bg-gray-100 active:text-gray-700 transition ease-in-out duration-150 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-300 dark:focus:border-blue-700 dark:active:bg-gray-700 dark:active:text-gray-300">
+                {!! __('pagination.next') !!}
+            </a>
+        @else
+            <span class="relative inline-flex items-center px-4 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 cursor-default leading-5 rounded-md dark:text-gray-600 dark:bg-gray-800 dark:border-gray-600">
+                {!! __('pagination.next') !!}
+            </span>
+        @endif
+    </nav>
+@endif
+
+
+========== File: resources/views/vendor/pagination/tailwind.blade.php ==========
+@if ($paginator->hasPages())
+    <nav role="navigation" aria-label="{{ __('Pagination Navigation') }}" class="flex items-center justify-between">
+        <div class="flex justify-between flex-1 sm:hidden">
+            @if ($paginator->onFirstPage())
+                <span class="relative inline-flex items-center px-4 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 cursor-default leading-5 rounded-md dark:text-gray-600 dark:bg-gray-800 dark:border-gray-600">
+                    {!! __('pagination.previous') !!}
+                </span>
+            @else
+                <a href="{{ $paginator->previousPageUrl() }}" class="relative inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 leading-5 rounded-md hover:text-gray-500 focus:outline-none focus:ring ring-gray-300 focus:border-blue-300 active:bg-gray-100 active:text-gray-700 transition ease-in-out duration-150 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-300 dark:focus:border-blue-700 dark:active:bg-gray-700 dark:active:text-gray-300">
+                    {!! __('pagination.previous') !!}
+                </a>
+            @endif
+
+            @if ($paginator->hasMorePages())
+                <a href="{{ $paginator->nextPageUrl() }}" class="relative inline-flex items-center px-4 py-2 ml-3 text-sm font-medium text-gray-700 bg-white border border-gray-300 leading-5 rounded-md hover:text-gray-500 focus:outline-none focus:ring ring-gray-300 focus:border-blue-300 active:bg-gray-100 active:text-gray-700 transition ease-in-out duration-150 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-300 dark:focus:border-blue-700 dark:active:bg-gray-700 dark:active:text-gray-300">
+                    {!! __('pagination.next') !!}
+                </a>
+            @else
+                <span class="relative inline-flex items-center px-4 py-2 ml-3 text-sm font-medium text-gray-500 bg-white border border-gray-300 cursor-default leading-5 rounded-md dark:text-gray-600 dark:bg-gray-800 dark:border-gray-600">
+                    {!! __('pagination.next') !!}
+                </span>
+            @endif
+        </div>
+
+        <div class="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+            <div>
+                <p class="text-sm text-gray-700 leading-5 dark:text-gray-400">
+                    {!! __('Showing') !!}
+                    @if ($paginator->firstItem())
+                        <span class="font-medium">{{ $paginator->firstItem() }}</span>
+                        {!! __('to') !!}
+                        <span class="font-medium">{{ $paginator->lastItem() }}</span>
+                    @else
+                        {{ $paginator->count() }}
+                    @endif
+                    {!! __('of') !!}
+                    <span class="font-medium">{{ $paginator->total() }}</span>
+                    {!! __('results') !!}
+                </p>
+            </div>
+
+            <div>
+                <span class="relative z-0 inline-flex rtl:flex-row-reverse shadow-sm rounded-md">
+                    {{-- Previous Page Link --}}
+                    @if ($paginator->onFirstPage())
+                        <span aria-disabled="true" aria-label="{{ __('pagination.previous') }}">
+                            <span class="relative inline-flex items-center px-2 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 cursor-default rounded-l-md leading-5 dark:bg-gray-800 dark:border-gray-600" aria-hidden="true">
+                                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clip-rule="evenodd" />
+                                </svg>
+                            </span>
+                        </span>
+                    @else
+                        <a href="{{ $paginator->previousPageUrl() }}" rel="prev" class="relative inline-flex items-center px-2 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-l-md leading-5 hover:text-gray-400 focus:z-10 focus:outline-none focus:ring ring-gray-300 focus:border-blue-300 active:bg-gray-100 active:text-gray-500 transition ease-in-out duration-150 dark:bg-gray-800 dark:border-gray-600 dark:active:bg-gray-700 dark:focus:border-blue-800" aria-label="{{ __('pagination.previous') }}">
+                            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clip-rule="evenodd" />
+                            </svg>
+                        </a>
+                    @endif
+
+                    {{-- Pagination Elements --}}
+                    @foreach ($elements as $element)
+                        {{-- "Three Dots" Separator --}}
+                        @if (is_string($element))
+                            <span aria-disabled="true">
+                                <span class="relative inline-flex items-center px-4 py-2 -ml-px text-sm font-medium text-gray-700 bg-white border border-gray-300 cursor-default leading-5 dark:bg-gray-800 dark:border-gray-600">{{ $element }}</span>
+                            </span>
+                        @endif
+
+                        {{-- Array Of Links --}}
+                        @if (is_array($element))
+                            @foreach ($element as $page => $url)
+                                @if ($page == $paginator->currentPage())
+                                    <span aria-current="page">
+                                        <span class="relative inline-flex items-center px-4 py-2 -ml-px text-sm font-medium text-gray-500 bg-white border border-gray-300 cursor-default leading-5 dark:bg-gray-800 dark:border-gray-600">{{ $page }}</span>
+                                    </span>
+                                @else
+                                    <a href="{{ $url }}" class="relative inline-flex items-center px-4 py-2 -ml-px text-sm font-medium text-gray-700 bg-white border border-gray-300 leading-5 hover:text-gray-500 focus:z-10 focus:outline-none focus:ring ring-gray-300 focus:border-blue-300 active:bg-gray-100 active:text-gray-700 transition ease-in-out duration-150 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-400 dark:hover:text-gray-300 dark:active:bg-gray-700 dark:focus:border-blue-800" aria-label="{{ __('Go to page :page', ['page' => $page]) }}">
+                                        {{ $page }}
+                                    </a>
+                                @endif
+                            @endforeach
+                        @endif
+                    @endforeach
+
+                    {{-- Next Page Link --}}
+                    @if ($paginator->hasMorePages())
+                        <a href="{{ $paginator->nextPageUrl() }}" rel="next" class="relative inline-flex items-center px-2 py-2 -ml-px text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-r-md leading-5 hover:text-gray-400 focus:z-10 focus:outline-none focus:ring ring-gray-300 focus:border-blue-300 active:bg-gray-100 active:text-gray-500 transition ease-in-out duration-150 dark:bg-gray-800 dark:border-gray-600 dark:active:bg-gray-700 dark:focus:border-blue-800" aria-label="{{ __('pagination.next') }}">
+                            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" />
+                            </svg>
+                        </a>
+                    @else
+                        <span aria-disabled="true" aria-label="{{ __('pagination.next') }}">
+                            <span class="relative inline-flex items-center px-2 py-2 -ml-px text-sm font-medium text-gray-500 bg-white border border-gray-300 cursor-default rounded-r-md leading-5 dark:bg-gray-800 dark:border-gray-600" aria-hidden="true">
+                                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" />
+                                </svg>
+                            </span>
+                        </span>
+                    @endif
+                </span>
+            </div>
+        </div>
+    </nav>
+@endif
 
 
 ========== File: resources/views/welcome.blade.php ==========

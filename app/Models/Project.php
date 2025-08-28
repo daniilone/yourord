@@ -1,7 +1,5 @@
 <?php
-
 namespace App\Models;
-
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
@@ -10,12 +8,11 @@ class Project extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['master_id', 'name', 'description', 'slug'];
+    protected $fillable = ['name', 'description', 'slug', 'balance'];
 
     protected static function boot()
     {
         parent::boot();
-
         static::creating(function ($project) {
             if (empty($project->slug)) {
                 $project->slug = Str::slug($project->name);
@@ -33,9 +30,15 @@ class Project extends Model
         return 'slug';
     }
 
-    public function master()
+    public function specialists()
     {
-        return $this->belongsTo(Master::class);
+        return $this->belongsToMany(Specialist::class, 'project_specialists')
+            ->withPivot('permissions', 'is_owner');
+    }
+
+    public function owner()
+    {
+        return $this->specialists()->wherePivot('is_owner', true)->first();
     }
 
     public function services()

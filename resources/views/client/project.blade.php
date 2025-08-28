@@ -83,7 +83,6 @@
 
             function updateSlotsByDate(event) {
                 const date = event.target.value;
-                const serviceId = document.querySelector('select[name="service_id"]').value;
                 window.location.href = '{{ route('client.project', $project->slug) }}?date=' + date;
             }
         </script>

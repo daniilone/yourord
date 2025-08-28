@@ -42,7 +42,7 @@ class ClientController extends Controller
 
     public function projects(Request $request)
     {
-        $projects = auth('client')->user()->projects()->with('master')->paginate(10);
+        $projects = Auth::guard('client')->user()->projects()->with('specialists')->paginate(10);
         return view('client.projects', compact('projects'));
     }
 
@@ -76,8 +76,7 @@ class ClientController extends Controller
             'service_duration' => $service->duration
         ]);
 
-        $minDuration = Service::where('project_id', $project->id)
-            ->min('duration') ?? 30;
+        $minDuration = Service::where('project_id', $project->id)->min('duration') ?? 30;
         $slotStep = $minDuration;
 
         $dailySchedule = DailySchedule::where('project_id', $project->id)

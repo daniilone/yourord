@@ -1,44 +1,60 @@
 <?php
-
 return [
     'defaults' => [
         'guard' => 'web',
-        'passwords' => 'users',
+        'passwords' => 'clients',
     ],
     'guards' => [
         'web' => [
             'driver' => 'session',
-            'provider' => 'users',
+            'provider' => 'clients',
+        ],
+        'specialist' => [
+            'driver' => 'session',
+            'provider' => 'specialists',
         ],
         'client' => [
             'driver' => 'session',
             'provider' => 'clients',
         ],
-        'master' => [
+        'admin' => [
             'driver' => 'session',
-            'provider' => 'masters',
+            'provider' => 'admins',
         ],
     ],
     'providers' => [
-        'users' => [
-            'driver' => 'eloquent',
-            'model' => App\Models\User::class,
-        ],
         'clients' => [
             'driver' => 'eloquent',
             'model' => App\Models\Client::class,
         ],
-        'masters' => [
+        'specialists' => [
             'driver' => 'eloquent',
-            'model' => App\Models\Master::class,
+            'model' => App\Models\Specialist::class,
+        ],
+        'admins' => [
+            'driver' => 'eloquent',
+            'model' => App\Models\Admin::class,
         ],
     ],
     'passwords' => [
-        'users' => [
-            'provider' => 'users',
-            'table' => 'password_reset_tokens',
+        'clients' => [
+            'provider' => 'clients',
+            'table' => 'password_resets',
+            'expire' => 60,
+            'throttle' => 60,
+        ],
+        'specialists' => [
+            'provider' => 'specialists',
+            'table' => 'password_resets',
+            'expire' => 60,
+            'throttle' => 60,
+        ],
+        'admins' => [
+            'provider' => 'admins',
+            'table' => 'password_resets',
             'expire' => 60,
             'throttle' => 60,
         ],
     ],
+    'password_timeout' => 10800,
 ];
