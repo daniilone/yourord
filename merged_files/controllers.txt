@@ -842,6 +842,55 @@ class Controller extends BaseController
 }
 
 
+========== File: app/Http/Controllers/ProjectController.php ==========
+<?php
+namespace App\Http\Controllers;
+
+use App\Models\Project;
+use App\Models\Specialist;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+
+class ProjectController extends Controller
+{
+    public function index()
+    {
+        $specialist = Auth::guard('specialist')->user();
+        $projects = $specialist->projects()->get();
+        return view('specialist.projects', compact('projects'));
+    }
+
+    public function create()
+    {
+        return view('specialist.projects.create');
+    }
+
+    public function store(Request $request)
+    {
+        $request->validate([
+            'title' => 'required|string|max:255',
+            'description' => 'nullable|string',
+            'client_id' => 'required|exists:clients,id',
+        ]);
+
+        $project = Project::create([
+            'title' => $request->title,
+            'description' => $request->description,
+            'client_id' => $request->client_id,
+        ]);
+
+        // Привязываем проект к специалисту
+        $specialist = Auth::guard('specialist')->user();
+        $project->specialists()->attach($specialist->id, [
+            'is_owner' => true,
+            'permissions' => json_encode(['manage_tasks', 'view_details']),
+        ]);
+
+        return redirect()->route('specialist.projects')->with('success', 'Проект успешно создан.');
+    }
+}
+
+
 ========== File: app/Http/Controllers/ScheduleController.php ==========
 <?php
 
@@ -1226,6 +1275,23 @@ class SpecialistController extends Controller
         if (!$pivot->is_owner && !in_array($permission, $pivot->permissions ?? [])) {
             abort(403);
         }
+    }
+}
+
+
+========== File: app/Http/Controllers/SpecialistDashboardController.php ==========
+<?php
+namespace App\Http\Controllers;
+
+use Illuminate\Support\Facades\Auth;
+
+class SpecialistDashboardController extends Controller
+{
+    public function index()
+    {
+        $specialist = Auth::guard('specialist')->user();
+        $projects = $specialist->projects()->get();
+        return view('specialist.dashboard', compact('projects'));
     }
 }
 

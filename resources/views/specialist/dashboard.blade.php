@@ -1,45 +1,30 @@
 @extends('layouts.specialist')
-@section('title', 'Специалист - Дашборд - YourOrd')
+
+@section('title', 'Дашборд специалиста')
+
 @section('content')
-    <div class="max-w-7xl mx-auto">
-        <h1 class="text-3xl font-bold mb-6 text-gray-800">Добро пожаловать, {{ $specialist->name ?? $specialist->email }}</h1>
-        <h2 class="text-2xl font-semibold mb-4 text-gray-700">Ваши проекты</h2>
-        <div class="mb-4">
-            <a href="{{ route('specialist.project.create') }}" class="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700">Создать проект</a>
-        </div>
-        <div class="bg-white shadow overflow-hidden sm:rounded-lg">
-            <table class="min-w-full divide-y divide-gray-200">
-                <thead class="bg-gray-50">
-                <tr>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Название</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Описание</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Баланс</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Действия</th>
-                </tr>
-                </thead>
-                <tbody class="bg-white divide-y divide-gray-200">
+    <div class="p-6">
+        <h1 class="text-2xl font-bold text-primary mb-6">Дашборд специалиста</h1>
+
+        @if (session('success'))
+            <div class="bg-success text-white p-4 rounded mb-6">
+                {{ session('success') }}
+            </div>
+        @endif
+
+        <h2 class="text-xl font-semibold text-gray-700 mb-4">Ваши проекты</h2>
+        @if ($projects->isEmpty())
+            <p class="text-gray-600">У вас пока нет проектов.</p>
+        @else
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 @foreach ($projects as $project)
-                    <tr>
-                        <td class="px-6 py-4 whitespace-nowrap">{{ $project->name }}</td>
-                        <td class="px-6 py-4 whitespace-nowrap">{{ $project->description ?? '-' }}</td>
-                        <td class="px-6 py-4 whitespace-nowrap">{{ $project->balance }} руб.</td>
-                        <td class="px-6 py-4 whitespace-nowrap">
-                            <a href="{{ route('specialist.project', $project->slug) }}" class="text-indigo-600 hover:text-indigo-800">Просмотреть</a>
-                            @if ($project->specialists()->where('specialist_id', auth('specialist')->id())->first()->pivot->is_owner)
-                                <form action="{{ route('specialist.project.delete', $project->slug) }}" method="POST" class="inline">
-                                    @csrf
-                                    @method('DELETE')
-                                    <button type="submit" class="text-red-600 hover:text-red-800 ml-2">Удалить</button>
-                                </form>
-                            @endif
-                        </td>
-                    </tr>
+                    <div class="bg-white p-4 rounded shadow">
+                        <h3 class="text-lg font-semibold text-primary">{{ $project->title }}</h3>
+                        <p class="text-gray-600">{{ $project->description ?? 'Без описания' }}</p>
+                        <a href="{{ route('specialist.projects') }}" class="text-primary hover:underline">Подробнее</a>
+                    </div>
                 @endforeach
-                </tbody>
-            </table>
-        </div>
-        <div class="mt-4">
-            {{ $projects->links('pagination::tailwind') }}
-        </div>
+            </div>
+        @endif
     </div>
 @endsection
